@@ -37,9 +37,9 @@ class SoftwareCrudController extends AbstractCrudController
     {
         yield IdField::new('id')->onlyOnIndex();
         yield TextField::new('title')->setColumns(6);
-        yield SlugField::new('slug')->setColumns(3)->hideOnIndex();
+        yield SlugField::new('slug')->setTargetFieldName('title')->setColumns(3)->hideOnIndex();
         yield StateField::new('state')->setColumns(3);
-        yield TextField::new('headline', 'Tagline')->setColumns(12)->hideOnIndex();
+        yield TextField::new('headline', 'Tagline')->setRequired(false)->setColumns(12)->hideOnIndex();
         yield TextField::new('category')->setColumns(3)
             ->setFormType(ChoiceType::class)
             ->setFormTypeOptions(['choices' => array_combine(Software::CATEGORIES, Software::CATEGORIES)]);
@@ -49,16 +49,16 @@ class SoftwareCrudController extends AbstractCrudController
         yield TextField::new('pricing')->setColumns(3)
             ->setFormType(EnumType::class)->setFormTypeOptions(['class' => Pricing::class])
             ->formatValue(fn ($value) => $value instanceof Pricing ? $value->value : $value);
-        yield TextField::new('year')->setColumns(3)->hideOnIndex();
+        yield TextField::new('year')->setRequired(false)->setColumns(3)->hideOnIndex();
         yield WysiwygField::new('content', 'Description')->hideOnIndex();
-        yield TextField::new('stackAsText', 'Stack')->setColumns(6)->hideOnIndex()->setHelp('Comma separated: Symfony, TransparentJS, Stripe');
+        yield TextField::new('stackAsText', 'Stack')->setRequired(false)->setColumns(6)->hideOnIndex()->setHelp('Comma separated: Symfony, TransparentJS, Stripe');
         yield ImageField::new('image')->setColumns(6)->hideOnIndex()->setRequired(false)->setHelp('The card\'s picture (an older path under the public assets, or a URL, still shows)');
-        yield TextField::new('homepage')->setColumns(4)->hideOnIndex();
-        yield TextField::new('sourceUrl')->setColumns(4)->hideOnIndex();
-        yield TextField::new('demoUrl')->setColumns(4)->hideOnIndex()->setHelp('Opened in a nested panel from the applications page');
-        yield TextField::new('gitRepository', 'Git repository')->setColumns(4)->setHelp('The git-bundle repository name (releases are built from its tags)');
-        yield TextField::new('repositoryUrl')->setColumns(4)->hideOnIndex()->setHelp('Cloned into forge.repositories_dir when not in git.repositories');
-        yield TextField::new('packageName')->setColumns(4)->hideOnIndex()->setHelp('vendor/name, to serve it from the Composer repository');
+        yield TextField::new('homepage')->setRequired(false)->setColumns(4)->hideOnIndex();
+        yield TextField::new('sourceUrl')->setRequired(false)->setColumns(4)->hideOnIndex();
+        yield TextField::new('demoUrl')->setRequired(false)->setColumns(4)->hideOnIndex()->setHelp('Opened in a nested panel from the applications page');
+        yield TextField::new('gitRepository', 'Git repository')->setRequired(false)->setColumns(4)->setHelp('The git-bundle repository name (releases are built from its tags)');
+        yield TextField::new('repositoryUrl')->setRequired(false)->setColumns(4)->hideOnIndex()->setHelp('Cloned into forge.repositories_dir when not in git.repositories');
+        yield TextField::new('packageName')->setRequired(false)->setColumns(4)->hideOnIndex()->setHelp('vendor/name, to serve it from the Composer repository');
         yield AssociationField::new('parent', 'Famille')->setClass(Software::class)->setColumns(3)->setRequired(false)->setHelp('Listed under it on the site (base-bundle-admin under base-bundle)');
         yield IntegerField::new('position')->setColumns(3);
     }

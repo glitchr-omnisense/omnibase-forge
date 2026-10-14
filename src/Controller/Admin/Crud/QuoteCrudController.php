@@ -53,17 +53,17 @@ class QuoteCrudController extends AbstractCrudController
         yield TextField::new('title')->setColumns(9);
         yield TextField::new('contactName')->setColumns(4);
         yield EmailField::new('email')->setColumns(4);
-        yield AssociationField::new('client')->setColumns(4)->hideOnIndex();
-        yield TextField::new('siret', 'SIRET')->setColumns(4)->hideOnIndex();
+        yield AssociationField::new('client')->setRequired(false)->setColumns(4)->hideOnIndex();
+        yield TextField::new('siret', 'SIRET')->setRequired(false)->setColumns(4)->hideOnIndex();
         yield TextField::new('companyBadge', 'Entreprise (registre)')->setColumns(8)->setDisabled()->hideOnForm();
         yield TextField::new('status')->setColumns(3)
             ->setFormType(EnumType::class)->setFormTypeOptions(['class' => QuoteStatus::class])
             ->formatValue(fn ($value) => $value instanceof QuoteStatus ? $value->value : $value);
-        yield DateField::new('validUntil')->setColumns(3);
+        yield DateField::new('validUntil')->setRequired(false)->setColumns(3);
         yield IntegerField::new('discountPercent', 'Discount %')->setColumns(3);
-        yield AssociationField::new('project')->setColumns(3)->hideOnIndex();
-        yield TextareaField::new('request')->hideOnIndex()->setHelp('What the client asked');
-        yield TextareaField::new('message')->hideOnIndex()->setHelp('Shown to the client above the lines');
+        yield AssociationField::new('project')->setRequired(false)->setColumns(3)->hideOnIndex();
+        yield TextareaField::new('request')->setRequired(false)->hideOnIndex()->setHelp('What the client asked');
+        yield TextareaField::new('message')->setRequired(false)->hideOnIndex()->setHelp('Shown to the client above the lines');
         yield CollectionField::new('lines')->setEntryType(QuoteLineType::class)->allowAdd()->allowDelete()->hideOnIndex()
             ->setFormTypeOptions(['by_reference' => false]);
         yield IntegerField::new('total', 'Total (cents)')->onlyOnIndex();

@@ -35,8 +35,8 @@ class TimeEntryCrudController extends AbstractCrudController
         yield IntegerField::new('minutes')->setColumns(2);
         yield BooleanField::new('billable')->setColumns(3);
         yield TextField::new('note')->setColumns(8);
-        yield TextField::new('commitSha')->setColumns(4)->hideOnIndex();
-        yield AssociationField::new('author')->setColumns(4)->hideOnIndex();
+        yield TextField::new('commitSha')->setRequired(false)->setColumns(4)->hideOnIndex();
+        yield AssociationField::new('author')->setRequired(false)->setColumns(4)->hideOnIndex();
     }
 
     public function createEntity(string $entityFqcn): object

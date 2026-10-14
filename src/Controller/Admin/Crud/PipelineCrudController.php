@@ -37,14 +37,14 @@ class PipelineCrudController extends AbstractCrudController
     public function configureFields(string $pageName): iterable
     {
         yield IdField::new('id')->onlyOnIndex();
-        yield AssociationField::new('project')->setColumns(4);
-        yield TextField::new('ref', 'Branch or tag')->setColumns(4);
-        yield TextField::new('commitSha', 'Commit')->setColumns(4)->hideOnIndex();
+        yield AssociationField::new('project')->setRequired(false)->setColumns(4);
+        yield TextField::new('ref', 'Branch or tag')->setRequired(false)->setColumns(4);
+        yield TextField::new('commitSha', 'Commit')->setRequired(false)->setColumns(4)->hideOnIndex();
         yield TextField::new('status')->setColumns(3)
             ->setFormType(EnumType::class)->setFormTypeOptions(['class' => PipelineStatus::class, 'required' => false])
             ->setHelp('Empty: what its stages say')
             ->formatValue(fn ($value) => $value instanceof PipelineStatus ? $value->value : $value);
-        yield TextField::new('url')->setColumns(9)->hideOnIndex();
+        yield TextField::new('url')->setRequired(false)->setColumns(9)->hideOnIndex();
         yield DateTimeField::new('createdAt')->hideOnForm();
     }
 }

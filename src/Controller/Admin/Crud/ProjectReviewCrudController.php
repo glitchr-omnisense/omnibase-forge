@@ -43,7 +43,7 @@ class ProjectReviewCrudController extends AbstractCrudController
         yield AssociationField::new('project', 'Projet')->setColumns(6)->setDisabled();
         yield IntegerField::new('rating', 'Note /5')->setColumns(2)->setDisabled();
         yield BooleanField::new('published', 'Affiché')->setColumns(4)->setHelp('Sur le site, dans « Ce qu\'en disent nos clients ».');
-        yield TextField::new('signature', 'Signé')->setColumns(6);
+        yield TextField::new('signature', 'Signé')->setRequired(false)->setColumns(6);
         yield TextareaField::new('comment', 'Leur avis')->setColumns(12)->setDisabled();
         yield DateTimeField::new('requestedAt', 'Demandé le')->onlyOnIndex();
         yield DateTimeField::new('submittedAt', 'Donné le')->onlyOnIndex();

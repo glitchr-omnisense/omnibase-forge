@@ -38,10 +38,10 @@ class ReleaseCrudController extends AbstractCrudController
         yield IdField::new('id')->onlyOnIndex();
         yield AssociationField::new('software')->setColumns(4);
         yield TextField::new('version')->setColumns(2);
-        yield TextField::new('tag')->setColumns(3);
-        yield TextField::new('commitSha')->setColumns(3)->hideOnIndex();
-        yield DateTimeField::new('publishedAt')->setColumns(4);
-        yield TextareaField::new('changelog')->hideOnIndex();
+        yield TextField::new('tag')->setRequired(false)->setColumns(3);
+        yield TextField::new('commitSha')->setRequired(false)->setColumns(3)->hideOnIndex();
+        yield DateTimeField::new('publishedAt')->setRequired(false)->setColumns(4);
+        yield TextareaField::new('changelog')->setRequired(false)->hideOnIndex();
     }
 
     /** A token in the action's link, as for a logout: a link from elsewhere, a prefetch, does nothing (ActionController checks it). */

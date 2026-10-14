@@ -41,9 +41,9 @@ class LicenseCrudController extends AbstractCrudController
         yield IntegerField::new('seats')->setColumns(2)->setHelp('How many e-mails may use it');
         yield IntegerField::new('machinesPerSeat', 'Machines per seat')->setColumns(2)->hideOnIndex()->setHelp('On how many computers each may activate it');
         yield TextField::new('seatsTaken', 'Given')->onlyOnIndex();
-        yield DateTimeField::new('expiresAt')->setColumns(4);
-        yield DateTimeField::new('updatesUntil')->setColumns(4)->hideOnIndex();
-        yield TextField::new('orderReference')->setColumns(4)->hideOnIndex();
+        yield DateTimeField::new('expiresAt')->setRequired(false)->setColumns(4);
+        yield DateTimeField::new('updatesUntil')->setRequired(false)->setColumns(4)->hideOnIndex();
+        yield TextField::new('orderReference')->setRequired(false)->setColumns(4)->hideOnIndex();
         yield DateTimeField::new('createdAt')->onlyOnIndex();
     }
 

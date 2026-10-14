@@ -42,14 +42,14 @@ class ProjectCrudController extends AbstractCrudController
         yield IdField::new('id')->onlyOnIndex();
         yield TextField::new('title')->setColumns(6);
         yield AssociationField::new('client')->setColumns(6);
-        yield TextField::new('excerpt', 'Summary')->setColumns(12)->hideOnIndex();
+        yield TextField::new('excerpt', 'Summary')->setRequired(false)->setColumns(12)->hideOnIndex();
         yield TextField::new('status')->setColumns(3)
             ->setFormType(EnumType::class)->setFormTypeOptions(['class' => ProjectStatus::class])
             ->formatValue(fn ($value) => $value instanceof ProjectStatus ? $value->value : $value);
-        yield IntegerField::new('budgetMinutes', 'Budget (minutes)')->setColumns(3);
-        yield DateField::new('dueOn')->setColumns(3);
-        yield TextField::new('gitRepository', 'Git repository')->setColumns(4)->setHelp('git-bundle repository name');
-        yield TextField::new('repositoryUrl')->setColumns(8)->hideOnIndex()->setHelp('Cloned by git:sync when not in git.repositories');
+        yield IntegerField::new('budgetMinutes', 'Budget (minutes)')->setRequired(false)->setColumns(3);
+        yield DateField::new('dueOn')->setRequired(false)->setColumns(3);
+        yield TextField::new('gitRepository', 'Git repository')->setRequired(false)->setColumns(4)->setHelp('git-bundle repository name');
+        yield TextField::new('repositoryUrl')->setRequired(false)->setColumns(8)->hideOnIndex()->setHelp('Cloned by git:sync when not in git.repositories');
     }
 
     /** A token in the action's link, as for a logout: a link from elsewhere, a prefetch, does nothing (ActionController checks it). */

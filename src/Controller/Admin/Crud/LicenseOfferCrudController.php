@@ -23,10 +23,10 @@ class LicenseOfferCrudController extends ProductCrudController
     public function configureFields(string $pageName): iterable
     {
         yield from parent::configureFields($pageName);
-        yield AssociationField::new('software')->setColumns(6);
+        yield AssociationField::new('software')->setRequired(false)->setColumns(6);
         yield IntegerField::new('seats')->setColumns(2);
-        yield IntegerField::new('machinesPerSeat', 'Machines per seat')->setColumns(2)->setHelp('On how many computers each seat may activate it');
-        yield IntegerField::new('durationMonths')->setColumns(2)->setHelp('Empty: perpetual');
-        yield IntegerField::new('updatesMonths')->setColumns(2)->setHelp('Empty: every future release');
+        yield IntegerField::new('machinesPerSeat', 'Machines per seat')->setRequired(false)->setColumns(2)->setHelp('On how many computers each seat may activate it');
+        yield IntegerField::new('durationMonths')->setRequired(false)->setColumns(2)->setHelp('Empty: perpetual');
+        yield IntegerField::new('updatesMonths')->setRequired(false)->setColumns(2)->setHelp('Empty: every future release');
     }
 }

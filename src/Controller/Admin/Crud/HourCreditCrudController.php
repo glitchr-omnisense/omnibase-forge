@@ -47,8 +47,8 @@ class HourCreditCrudController extends AbstractCrudController
         yield AssociationField::new('user');
         yield IntegerField::new('minutes');
         yield TextField::new('reason')->formatValue(fn ($value) => $value instanceof \BackedEnum ? $value->value : $value);
-        yield TextField::new('note');
-        yield TextField::new('orderReference');
+        yield TextField::new('note')->setRequired(false);
+        yield TextField::new('orderReference')->setRequired(false);
         yield DateTimeField::new('createdAt');
     }
 }

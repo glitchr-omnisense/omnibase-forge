@@ -38,9 +38,9 @@ class LicenseActivationCrudController extends AbstractCrudController
     {
         yield IdField::new('id')->onlyOnIndex();
         yield AssociationField::new('seat', 'Poste');
-        yield TextField::new('name', 'Machine');
-        yield TextField::new('platform', 'Plateforme');
-        yield TextField::new('version', 'Version');
+        yield TextField::new('name', 'Machine')->setRequired(false);
+        yield TextField::new('platform', 'Plateforme')->setRequired(false);
+        yield TextField::new('version', 'Version')->setRequired(false);
         yield DateTimeField::new('activatedAt', 'Activée le');
         yield DateTimeField::new('lastSeenAt', 'Vue le');
     }

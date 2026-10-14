@@ -38,8 +38,8 @@ class DownloadCrudController extends AbstractCrudController
         yield IdField::new('id')->onlyOnIndex();
         yield DateTimeField::new('downloadedAt', 'Quand');
         yield AssociationField::new('artifact', 'Fichier');
-        yield AssociationField::new('user', 'Qui');
-        yield AssociationField::new('license', 'Licence');
+        yield AssociationField::new('user', 'Qui')->setRequired(false);
+        yield AssociationField::new('license', 'Licence')->setRequired(false);
         yield TextField::new('channel', 'Par');
     }
 }

@@ -34,7 +34,7 @@ class CardCrudController extends AbstractCrudController
             ->setFormType(EnumType::class)->setFormTypeOptions(['class' => CardColumn::class])
             ->formatValue(fn ($value) => $value instanceof CardColumn ? $value->value : $value);
         yield IntegerField::new('position')->setColumns(2);
-        yield TextField::new('label')->setColumns(3);
-        yield TextareaField::new('description')->hideOnIndex();
+        yield TextField::new('label')->setRequired(false)->setColumns(3);
+        yield TextareaField::new('description')->setRequired(false)->hideOnIndex();
     }
 }

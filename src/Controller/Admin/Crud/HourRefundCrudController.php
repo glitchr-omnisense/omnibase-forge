@@ -38,13 +38,13 @@ class HourRefundCrudController extends AbstractCrudController
     {
         yield IdField::new('id')->onlyOnIndex();
         yield TextField::new('orderReference');
-        yield AssociationField::new('customer');
+        yield AssociationField::new('customer')->setRequired(false);
         yield TextField::new('amount')->formatValue(fn ($value, HourRefund $refund) => number_format($refund->getAmount() / 100, 2, ',', ' ').' '.$refund->getCurrency());
         yield IntegerField::new('minutes');
         yield TextField::new('method')->formatValue(fn ($value) => HourRefund::TRANSFER === $value ? 'virement (à faire)' : 'carte (Stripe)');
-        yield TextField::new('stripeRefund')->hideOnIndex();
+        yield TextField::new('stripeRefund')->setRequired(false)->hideOnIndex();
         yield TextField::new('reason')->hideOnIndex();
-        yield AssociationField::new('refundedBy');
+        yield AssociationField::new('refundedBy')->setRequired(false);
         yield DateTimeField::new('createdAt');
     }
 }
