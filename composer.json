@@ -36,7 +36,7 @@
         "ext-zip": "*",
         "doctrine/orm": "^2.15|^3.0",
         "git/git-bundle": "1.x-dev",
-        "glitchr/omnibase": "3.0.*-dev",
+        "omniscient/omnibase": "3.0.*-dev",
         "omnibase/admin": "dev-main",
         "omnibase/marketplace": "dev-main",
         "omniscient/omnistate": "1.x-dev",

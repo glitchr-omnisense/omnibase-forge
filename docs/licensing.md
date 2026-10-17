@@ -122,7 +122,7 @@ ship the new public key first.
 
 ## Signed download links
 
-An artifact is downloaded through a link signed by glitchr/omnibase's
+An artifact is downloaded through a link signed by omniscient/omnibase's
 `Base\Service\DownloadLinks` (route `forge_download_file`, valid
 `forge.download_ttl` seconds; the Composer index signs its links for thirty
 days). Who may download was checked when the link was handed out (the licence);
