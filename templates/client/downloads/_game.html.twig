@@ -1,38 +1,33 @@
 {#
  # A game's head on its page: played in the page when its newest version has a
- # WebGL build the visitor may play (free, or covered by their licence) - the
- # build loads only when Play is pressed (bundles/forge/js/play.js frames
- # forge_play; without JavaScript the link opens it on its own) -, then its
- # trailer and its screenshots. Its builds per platform are under each version.
+ # WebGL build and the game is played in the browser - a free game, or a paid
+ # one whose playable preview the studio opened (a paid game is otherwise
+ # downloaded once bought, under its versions) -; the build loads only when
+ # Play is pressed (bundles/forge/js/play.js frames forge_play; without
+ # JavaScript the link opens it on its own). Then its trailer and screenshots.
  #}
 {% set playable = null %}
 {% for release in software.releases|filter(r => r.published and r.artifact('webgl')) %}
     {% if playable is null %}{% set playable = release %}{% endif %}
 {% endfor %}
-{% set may_play = playable and (software.free or is_granted('ROLE_STAFF') or licenses|filter(l => l.covers(playable))|length > 0) %}
+{% set may_play = playable and (software.playableInBrowser or is_granted('ROLE_STAFF')) %}
 {% set poster = software.screenshots|first ?: software.image %}
 
 <link rel="stylesheet" href="{{ asset('bundles/forge/css/games.css') }}">
 <script src="{{ asset('bundles/forge/js/play.js') }}" defer></script>
 
 <section class="forge-game" aria-label="{{ software.name }}">
-    {% if playable %}
+    {% if may_play %}
     <div class="forge-play" data-forge-play>
         <div class="forge-play-stage" data-forge-play-stage{% if poster %} style="background-image: url('{{ poster|e('css') }}')"{% endif %}>
-            {% if may_play %}
             <a class="forge-play-start" href="{{ path('forge_play', {slug: software.slug, version: playable.version}) }}/" target="_blank" rel="noopener" data-forge-play-start>
                 <i class="fa-solid fa-play" aria-hidden="true"></i> {{ '@forge.game.play'|trans }}
             </a>
-            {% else %}
-            <span class="forge-play-start is-locked"><i class="fa-solid fa-lock" aria-hidden="true"></i> {{ '@forge.game.locked'|trans }}</span>
-            {% endif %}
         </div>
         <p class="forge-play-bar">
-            <span class="forge-meta">{{ playable.version }} · {{ '@forge.game.play_help'|trans }}</span>
-            {% if may_play %}
+            <span class="forge-meta">{{ playable.version }}{{ not software.free ? ' · ' ~ '@forge.game.preview'|trans }} · {{ '@forge.game.play_help'|trans }}</span>
             <button type="button" class="forge-link" data-forge-play-fullscreen hidden><i class="fa-solid fa-expand" aria-hidden="true"></i> {{ '@forge.game.fullscreen'|trans }}</button>
             <a class="forge-link" href="{{ path('forge_play', {slug: software.slug, version: playable.version}) }}/" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> {{ '@forge.game.open'|trans }}</a>
-            {% endif %}
         </p>
     </div>
     {% endif %}

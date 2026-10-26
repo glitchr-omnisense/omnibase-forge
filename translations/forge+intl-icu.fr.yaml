@@ -30,7 +30,7 @@ game:
   play_help: "Se joue dans la page, rien à installer. Rien ne démarre avant que vous appuyiez sur Jouer."
   fullscreen: "Plein écran"
   open: "Ouvrir seul"
-  locked: "Se joue avec une licence"
+  preview: "Aperçu jouable"
   screenshots: "Captures d'écran"
   trailer: "Bande-annonce"
   builds: "Télécharger"

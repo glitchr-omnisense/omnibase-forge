@@ -16,7 +16,6 @@
     background: rgba(0, 0, 0, .72); border: 2px solid #fff; border-radius: .4rem;
 }
 .forge-play-start:hover, .forge-play-start:focus-visible { background: #000; }
-.forge-play-start.is-locked { opacity: .85; cursor: default; }
 .forge-play-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin: .5rem 0 0; }
 .forge-play-bar .forge-meta { flex: 1 1 16rem; }
 .forge-play-bar button.forge-link { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; color: inherit; }

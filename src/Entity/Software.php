@@ -113,6 +113,13 @@ class Software extends Thread implements LinkableInterface
     #[Uploader(max_size: '8MB', mime_types: ['image/*'])]
     protected $screenshots = [];
 
+    /**
+     * A paid game's playable preview: its WebGL build played in its page by anyone. Off by
+     * default - a free game plays in the browser, a paid one is downloaded once bought.
+     */
+    #[ORM\Column(nullable: true)]
+    protected ?bool $playablePreview = false;
+
     /** A game's trailer: an uploaded video, or (missable) a URL to one. */
     #[ORM\Column(length: 255, nullable: true)]
     #[Uploader(max_size: '256MB', mime_types: ['video/*'], missable: true)]
@@ -221,6 +228,16 @@ class Software extends Thread implements LinkableInterface
     public function getKind(): SoftwareKind { return $this->kind ?? SoftwareKind::PACKAGE; }
     public function setKind(SoftwareKind $kind): self { $this->kind = $kind; return $this; }
     public function isGame(): bool { return SoftwareKind::GAME === $this->getKind(); }
+
+    public function hasPlayablePreview(): bool { return (bool) $this->playablePreview; }
+    public function getPlayablePreview(): bool { return (bool) $this->playablePreview; }
+    public function setPlayablePreview(?bool $preview): self { $this->playablePreview = (bool) $preview; return $this; }
+
+    /**
+     * Whether its WebGL build is played in its page: a free game always; a paid one only when
+     * the studio opened a playable preview of it - otherwise it is downloaded once bought.
+     */
+    public function isPlayableInBrowser(): bool { return $this->isFree() || $this->hasPlayablePreview(); }
 
     public function getPricing(): Pricing { return $this->pricing ?? Pricing::FREE; }
     public function setPricing(Pricing $pricing): self { $this->pricing = $pricing; return $this; }

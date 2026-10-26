@@ -30,7 +30,7 @@ game:
   play_help: "Plays in this page, nothing to install. Nothing starts before you press Play."
   fullscreen: "Full screen"
   open: "Open on its own"
-  locked: "Played with a licence"
+  preview: "Playable preview"
   screenshots: "Screenshots"
   trailer: "Trailer"
   builds: "Download"

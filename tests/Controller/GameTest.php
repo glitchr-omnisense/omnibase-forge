@@ -9,6 +9,7 @@ use Base\Forge\Enum\Pricing;
 use Base\Forge\Enum\SoftwareKind;
 use Base\Forge\Service\ArtifactBuilder;
 use Base\Forge\Service\LicenseIssuer;
+use Doctrine\ORM\EntityManagerInterface;
 use Tests\Base\Forge\ForgeWebTestCase;
 
 /**
@@ -18,6 +19,7 @@ use Tests\Base\Forge\ForgeWebTestCase;
  */
 class GameTest extends ForgeWebTestCase
 {
+    /** A free game is played in the browser and downloaded freely, its builds per platform. */
     public function testAFreeGameIsPlayedInItsPageAndDownloadedPerPlatform(): void
     {
         [$game, $release] = $this->game(Pricing::FREE);
@@ -63,22 +65,37 @@ class GameTest extends ForgeWebTestCase
         self::assertSame(404, $this->request('GET', '/telechargements/'.$game->getSlug().'/1.0.0?format=android')->getStatusCode(), 'no Android build');
     }
 
-    public function testAPaidGameIsPlayedByItsLicenceHoldersOnly(): void
+    public function testAPaidGameIsDownloadedOnceBoughtAndPlayedOnlyAsAPreview(): void
     {
         [$game, $release] = $this->game(Pricing::LICENSED);
+        $builder = static::getContainer()->get(ArtifactBuilder::class);
+        $builder->attach($release, Platform::WINDOWS, $this->file('windows.zip', ['Game.exe' => 'MZ']), 'probe-1.0.0-windows.zip');
         $player = $this->user('player');
         $this->em->flush();
         static::getContainer()->get(LicenseIssuer::class)->issue($game, $player);
         $this->em->flush();
 
+        // No playable preview (the default): not played in the browser, by anyone.
         self::assertSame(403, $this->request('GET', '/play/'.$game->getSlug().'/1.0.0/')->getStatusCode(), 'anonymous');
         $page = $this->xpath($this->request('GET', '/telechargements/'.$game->getSlug()));
-        self::assertSame(0, $page->query('//*[@data-forge-play-start]')->length, 'no Play without a licence');
-        self::assertSame(1, $page->query('//*[contains(@class, "forge-play-start") and contains(@class, "is-locked")]')->length);
-
+        self::assertSame(0, $page->query('//*[@data-forge-play]')->length, 'no Play for a paid game');
+        self::assertSame(0, $page->query('//ul[@class="forge-builds"]//a')->length, 'its builds locked before it is bought');
         $this->signIn($player);
-        self::assertSame(200, $this->request('GET', '/play/'.$game->getSlug().'/1.0.0/')->getStatusCode(), 'its holder plays it');
-        self::assertStringContainsString('private', (string) $this->request('GET', '/play/'.$game->getSlug().'/1.0.0/Build/probe.wasm.br')->headers->get('Cache-Control'), 'cached by their browser alone');
+        self::assertSame(403, $this->request('GET', '/play/'.$game->getSlug().'/1.0.0/')->getStatusCode(), 'its holder downloads it rather');
+        $page = $this->xpath($this->request('GET', '/telechargements/'.$game->getSlug()));
+        self::assertSame(1, $page->query('//ul[@class="forge-builds"]//a[contains(@href, "format=windows")]')->length, 'bought: its Windows build to download');
+        self::assertSame(302, $this->request('GET', '/telechargements/'.$game->getSlug().'/1.0.0?format=windows')->getStatusCode(), 'through a signed link');
+
+        // The studio opens a playable preview: played in the page by anyone.
+        // Through the entity manager the requests use now (a refused request resets the kernel's).
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->find(Software::class, $game->getId())->setPlayablePreview(true);
+        $em->flush();
+        $this->cookies = [];
+        self::assertSame(200, $this->request('GET', '/play/'.$game->getSlug().'/1.0.0/')->getStatusCode());
+        $page = $this->xpath($this->request('GET', '/telechargements/'.$game->getSlug()));
+        self::assertSame('/play/'.$game->getSlug().'/1.0.0/', $page->evaluate('string(//*[@data-forge-play-start]/@href)'));
+        self::assertSame(0, $page->query('//ul[@class="forge-builds"]//a')->length, 'still bought to be downloaded');
     }
 
     public function testABuildIsRefusedForThePlatformItIsNotFor(): void

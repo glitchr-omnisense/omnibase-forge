@@ -5,7 +5,6 @@ namespace Base\Forge\Controller\Client;
 use Base\Forge\Entity\Software;
 use Base\Forge\Enum\Platform;
 use Base\Forge\Repository\SoftwareRepository;
-use Base\Forge\Security\Voter\ArtifactVoter;
 use Base\Forge\Service\WebglBuilds;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -18,9 +17,10 @@ use Symfony\Component\Routing\Attribute\Route;
  * A game's WebGL build, played in its page (the software page frames
  * /play/<slug>/<version>/ once the visitor presses Play): the build's own
  * index.html, then its loader and its compressed files, with the headers
- * WebglBuilds gives them. Who may download the build may play it - anyone
- * for a free game, the holder of a licence covering that version for a
- * paid one (ArtifactVoter).
+ * WebglBuilds gives them. A free game is played in the browser by anyone; a
+ * paid one is downloaded once bought, and played here only when the studio
+ * opened a playable preview of it (Software::$playablePreview) - then by
+ * anyone too. The staff always, to check a build.
  */
 class PlayController extends AbstractController
 {
@@ -45,17 +45,18 @@ class PlayController extends AbstractController
         }
         $build = $software->findRelease($version)?->getArtifact(Platform::WEBGL->value)
             ?? throw $this->createNotFoundException(sprintf('No WebGL build of %s %s.', $software, $version));
-        if (!$this->isGranted(ArtifactVoter::DOWNLOAD, $build)) {
-            throw new AccessDeniedHttpException(sprintf('%s %s is played with a licence.', $software, $version));
+        if (!$software->isPlayableInBrowser() && !$this->isGranted('ROLE_STAFF')) {
+            throw new AccessDeniedHttpException(sprintf('%s is a paid game: it is downloaded once bought.', $software));
         }
 
         [$file, $headers] = $this->builds->file($build, $path) ?? throw $this->createNotFoundException(sprintf('No "%s" in the build.', $path));
 
-        // A version's build is fixed (a new one is a new version): cached, but by
-        // the visitor's browser alone for a paid game.
-        $response = new BinaryFileResponse($file, Response::HTTP_OK, $headers, $software->isFree());
+        // A version's build is fixed (a new one is a new version): cached - by the
+        // browser alone when only the staff may play it.
+        $open = $software->isPlayableInBrowser();
+        $response = new BinaryFileResponse($file, Response::HTTP_OK, $headers, $open);
         $response->setMaxAge(3600);
-        if (!$software->isFree()) {
+        if (!$open) {
             $response->setPrivate();
         }
 

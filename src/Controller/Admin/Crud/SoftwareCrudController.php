@@ -4,6 +4,7 @@ namespace Base\Forge\Controller\Admin\Crud;
 
 use Base\Admin\Controller\AbstractCrudController;
 use Base\Field\AssociationField;
+use Base\Field\BooleanField;
 use Base\Field\IdField;
 use Base\Field\ImageField;
 use Base\Field\VideoField;
@@ -67,6 +68,7 @@ class SoftwareCrudController extends AbstractCrudController
         yield TextField::new('packageName')->setRequired(false)->setColumns(4)->hideOnIndex()->setHelp('vendor/name, to serve it from the Composer repository');
         yield TextField::new('upmName', 'UPM name')->setRequired(false)->setColumns(4)->hideOnIndex()->setHelp('com.glitchr.name, to serve it from the Unity registry (/upm): its package.json at each tag');
         yield ImageField::new('screenshots')->setMultipleFiles()->setRequired(false)->setColumns(8)->hideOnIndex()->setHelp('A game\'s screenshots, in their order');
+        yield BooleanField::new('playablePreview', 'Playable preview')->setRequired(false)->setColumns(4)->hideOnIndex()->setHelp('A paid game\'s WebGL build played in its page by anyone. A free game always plays in the browser');
         yield VideoField::new('trailer')->setRequired(false)->setColumns(4)->hideOnIndex()->setHelp('A game\'s trailer: a video');
         yield AssociationField::new('parent', 'Famille')->setClass(Software::class)->setColumns(3)->setRequired(false)->setHelp('Listed under it on the site (base-bundle-admin under base-bundle)');
         yield IntegerField::new('position')->setColumns(3);

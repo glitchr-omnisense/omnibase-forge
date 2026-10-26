@@ -21,13 +21,23 @@ replaces the platform's previous one; its sha256 is taken on the way in.
 | macos | a zip of the `.app`, or a `.dmg` |
 | android | an `.apk` or an `.aab` |
 
+## Free and paid games
+
+- A **free** game is played in the browser (its WebGL build, in its page) and
+  downloaded freely, its builds per platform.
+- A **paid** game is downloaded once bought (a licence offer, as any licensed
+  software), its builds per platform through signed links. It is played in
+  the browser only when the studio opens a **playable preview** of it
+  (`Software::$playablePreview`, off by default; "Playable preview" in the
+  back office) - then by anyone, as a demo.
+
 ## The game's page
 
 The software page (`/telechargements/<slug>`) of a game shows, above its
 versions:
 
-- **Play**, when its newest version has a WebGL build and the visitor may
-  play it (free, or covered by their licence). Nothing of the game loads
+- **Play**, when its newest version has a WebGL build and the game plays in
+  the browser (free, or a paid game with its playable preview open). Nothing of the game loads
   before Play is pressed: `bundles/forge/js/play.js` then frames
   `/play/<slug>/<version>/` in the page (without JavaScript the link opens it
   on its own), with a full-screen button. A game that stores nothing before
@@ -65,8 +75,9 @@ template whose canvas fills its window (`width: 100%; height: 100%`,
 `Assets/WebGLTemplates/Forge/index.html` is one: a canvas, a loading bar,
 nothing else.
 
-A paid game is played by its licence holders only (403 otherwise), its files
-cached by their browser alone (`Cache-Control: private`).
+A paid game without a playable preview is not played here (403; the staff
+may, to check a build), its files then cached by the browser alone
+(`Cache-Control: private`).
 
 ## Checking a licence from the game
 
