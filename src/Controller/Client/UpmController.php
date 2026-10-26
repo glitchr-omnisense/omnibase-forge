@@ -33,7 +33,7 @@ class UpmController extends AbstractController
     #[Route('/-/v1/search', name: 'forge_upm_search', methods: ['GET'])]
     public function search(Request $request): Response
     {
-        return $this->answer($request, fn (array $licenses) => $this->json(
+        return $this->answer($request, fn (array $licenses) => $this->document(
             $this->registry->search((string) $request->query->get('text', ''), $request->query->getInt('from'), $request->query->getInt('size', 20), $licenses),
         ));
     }
@@ -41,7 +41,7 @@ class UpmController extends AbstractController
     #[Route('/-/all', name: 'forge_upm_all', methods: ['GET'])]
     public function all(Request $request): Response
     {
-        return $this->answer($request, fn (array $licenses) => $this->json($this->registry->all($licenses)));
+        return $this->answer($request, fn (array $licenses) => $this->document($this->registry->all($licenses)));
     }
 
     #[Route('/{name}', name: 'forge_upm_package', requirements: ['name' => '[a-z0-9_-]+(?:\.[a-z0-9_-]+)+'], methods: ['GET', 'HEAD'])]
@@ -50,14 +50,14 @@ class UpmController extends AbstractController
         return $this->answer($request, function (array $licenses, bool $authenticated) use ($name) {
             $software = $this->registry->find($name);
             if (!$software || !$this->registry->hasVersions($software)) {
-                return $this->json(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
+                return $this->document(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
             }
             $document = $this->registry->document($software, $licenses);
             if (!\count($document['versions'])) {
                 return $this->refusal($authenticated);
             }
 
-            return $this->json($document);
+            return $this->document($document);
         });
     }
 
@@ -67,10 +67,10 @@ class UpmController extends AbstractController
         return $this->answer($request, function (array $licenses, bool $authenticated) use ($request, $name, $filename) {
             $software = $this->registry->find($name);
             if (!$software || !$this->registry->hasVersions($software)) {
-                return $this->json(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
+                return $this->document(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
             }
             if (!$this->registry->release($software, $filename)) {
-                return $this->json(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
+                return $this->document(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
             }
             $found = $this->registry->tarball($software, $filename, $licenses);
             if (!$found) {
@@ -89,7 +89,7 @@ class UpmController extends AbstractController
     {
         $caller = $this->registry->authenticate($request->headers->get('Authorization'));
         if (null === $caller) {
-            return $this->json(['error' => 'Invalid licence key.'], Response::HTTP_UNAUTHORIZED, ['WWW-Authenticate' => 'Bearer realm="Glitch Art packages"']);
+            return $this->document(['error' => 'Invalid licence key.'], Response::HTTP_UNAUTHORIZED, ['WWW-Authenticate' => 'Bearer realm="Glitch Art packages"']);
         }
         [$holder, $licenses] = $caller;
 
@@ -102,10 +102,19 @@ class UpmController extends AbstractController
         return $response;
     }
 
+    /**
+     * Encoded as it is (json_encode), not through the serializer AbstractController::json()
+     * would use: an empty object ({} - links, dist-tags) stays an object, as npm writes it.
+     */
+    private function document(mixed $data, int $status = Response::HTTP_OK, array $headers = []): JsonResponse
+    {
+        return new JsonResponse($data, $status, $headers);
+    }
+
     private function refusal(bool $authenticated): JsonResponse
     {
         return $authenticated
-            ? $this->json(['error' => 'Your licence does not cover this package or version.'], Response::HTTP_FORBIDDEN)
-            : $this->json(['error' => 'This package needs a licence key: set it as the token of this registry in ~/.upmconfig.toml.'], Response::HTTP_UNAUTHORIZED, ['WWW-Authenticate' => 'Bearer realm="Glitch Art packages"']);
+            ? $this->document(['error' => 'Your licence does not cover this package or version.'], Response::HTTP_FORBIDDEN)
+            : $this->document(['error' => 'This package needs a licence key: set it as the token of this registry in ~/.upmconfig.toml.'], Response::HTTP_UNAUTHORIZED, ['WWW-Authenticate' => 'Bearer realm="Glitch Art packages"']);
     }
 }

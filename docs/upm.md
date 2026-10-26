@@ -58,6 +58,24 @@ then checked against the seat's.
 Each tarball handed out is one `Download` row, channel `upm`, counted
 against the licence that covered it (a `HEAD` is not counted).
 
+## The host's firewall
+
+The registry reads the `Authorization` header itself. A firewall of the host
+that authenticates Bearer tokens on every path (Symfony's `access_token`, as
+on the main firewall of omnibase's sites) would take the licence key for one
+of its own tokens and refuse it before the registry sees it (401
+`invalid_token`). Keep `/upm` out of it, before that firewall:
+
+```yaml
+# config/packages/security.yaml
+security:
+    firewalls:
+        upm:
+            pattern: ^/upm/
+            stateless: true
+            security: false
+```
+
 ## In the project
 
 ```json
