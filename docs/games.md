@@ -58,6 +58,13 @@ slower for nothing. The headers are set by PHP, so they do not depend on the
 web server's configuration. A build made with the fallback (`.unityweb`
 files) is served too, as it is.
 
+The frame is the stage's size (16:9, the page's width): build with a WebGL
+template whose canvas fills its window (`width: 100%; height: 100%`,
+`matchWebGLToCanvasSize: true`) - Unity's Default template draws a fixed
+960x600 canvas, cropped in the frame on a phone. The sample game's
+`Assets/WebGLTemplates/Forge/index.html` is one: a canvas, a loading bar,
+nothing else.
+
 A paid game is played by its licence holders only (403 otherwise), its files
 cached by their browser alone (`Cache-Control: private`).
 
