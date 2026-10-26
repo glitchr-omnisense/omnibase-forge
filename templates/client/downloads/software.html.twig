@@ -12,6 +12,7 @@
 {% endblock %}
 
 {% block forge_body %}
+{% if software.game %}{% include '@Forge/client/downloads/_game.html.twig' %}{% endif %}
 <div class="forge-columns">
     <div class="forge-main">
         {% if software.description %}<div class="forge-prose">{{ software.description|nl2br }}</div>{% endif %}
@@ -35,6 +36,21 @@
                 </header>
                 {% if release.changelog %}<pre class="forge-changelog">{{ release.changelog }}</pre>{% endif %}
                 {% if release.artifact('zip') %}<p class="forge-meta">sha256 <code>{{ release.artifact('zip').sha256 }}</code></p>{% endif %}
+                {% if release.platformArtifacts|length %}
+                <ul class="forge-builds">
+                {% for build in release.platformArtifacts %}
+                    <li>
+                        {% if covered %}
+                            <a class="forge-link" href="{{ path('forge_download', {slug: software.slug, version: release.version, format: build.format}) }}"><i class="{{ build.platform.icon }}" aria-hidden="true"></i> {{ build.platform.label }}</a>
+                        {% else %}
+                            <span class="forge-muted"><i class="fa-solid fa-lock" aria-hidden="true"></i> {{ build.platform.label }}</span>
+                        {% endif %}
+                        <span class="forge-meta">{{ build.filename }} · {{ '@forge.game.build_size'|trans({size: (build.size / 1048576)|number_format(1)}) }}</span>
+                        <span class="forge-meta">sha256 <code>{{ build.sha256 }}</code></span>
+                    </li>
+                {% endfor %}
+                </ul>
+                {% endif %}
             </li>
         {% else %}
             <li class="forge-empty">{{ '@forge.software.no_release'|trans }}</li>
@@ -89,6 +105,27 @@
         {% if software.packageName %}
         <h2>Composer</h2>
         <pre class="forge-code"><code>composer require {{ software.packageName }}</code></pre>
+        {% endif %}
+
+        {% if software.upmName %}
+        {% set registry = url('forge_upm_package', {name: software.upmName})|split('/' ~ software.upmName)|first %}
+        {% set scope = software.upmName|split('.')|slice(0, 2)|join('.') %}
+        <h2>{{ '@forge.unity.title'|trans }}</h2>
+        <p>{{ '@forge.unity.lead'|trans }}</p>
+        <pre class="forge-code"><code>"scopedRegistries": [{
+  "name": "{{ app.request.host }}",
+  "url": "{{ registry }}",
+  "scopes": ["{{ scope }}"]
+}],
+"dependencies": {
+  "{{ software.upmName }}": "{{ software.latestRelease ? software.latestRelease.version : '1.0.0' }}"
+}</code></pre>
+        {% if not software.free %}
+        <p>{{ '@forge.unity.token'|trans }}</p>
+        <pre class="forge-code"><code>[npmAuth."{{ registry }}"]
+token = "glk_…"
+alwaysAuth = true</code></pre>
+        {% endif %}
         {% endif %}
     </aside>
 </div>

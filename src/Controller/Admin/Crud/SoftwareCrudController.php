@@ -6,6 +6,7 @@ use Base\Admin\Controller\AbstractCrudController;
 use Base\Field\AssociationField;
 use Base\Field\IdField;
 use Base\Field\ImageField;
+use Base\Field\VideoField;
 use Base\Field\IntegerField;
 use Base\Field\SlugField;
 use Base\Field\StateField;
@@ -13,6 +14,7 @@ use Base\Field\WysiwygField;
 use Base\Field\TextField;
 use Base\Forge\Entity\Software;
 use Base\Forge\Enum\Pricing;
+use Base\Forge\Enum\SoftwareKind;
 use Base\Forge\Enum\SoftwareStatus;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
@@ -46,6 +48,10 @@ class SoftwareCrudController extends AbstractCrudController
         yield TextField::new('status')->setColumns(3)
             ->setFormType(EnumType::class)->setFormTypeOptions(['class' => SoftwareStatus::class])
             ->formatValue(fn ($value) => $value instanceof SoftwareStatus ? $value->value : $value);
+        yield TextField::new('kind')->setColumns(3)
+            ->setFormType(EnumType::class)->setFormTypeOptions(['class' => SoftwareKind::class])
+            ->formatValue(fn ($value) => $value instanceof SoftwareKind ? $value->value : $value)
+            ->setHelp('A package (Composer, Unity), a game (played in its page, downloaded per platform) or an application');
         yield TextField::new('pricing')->setColumns(3)
             ->setFormType(EnumType::class)->setFormTypeOptions(['class' => Pricing::class])
             ->formatValue(fn ($value) => $value instanceof Pricing ? $value->value : $value);
@@ -59,6 +65,9 @@ class SoftwareCrudController extends AbstractCrudController
         yield TextField::new('gitRepository', 'Git repository')->setRequired(false)->setColumns(4)->setHelp('The git-bundle repository name (releases are built from its tags)');
         yield TextField::new('repositoryUrl')->setRequired(false)->setColumns(4)->hideOnIndex()->setHelp('Cloned into forge.repositories_dir when not in git.repositories');
         yield TextField::new('packageName')->setRequired(false)->setColumns(4)->hideOnIndex()->setHelp('vendor/name, to serve it from the Composer repository');
+        yield TextField::new('upmName', 'UPM name')->setRequired(false)->setColumns(4)->hideOnIndex()->setHelp('com.glitchr.name, to serve it from the Unity registry (/upm): its package.json at each tag');
+        yield ImageField::new('screenshots')->setMultipleFiles()->setRequired(false)->setColumns(8)->hideOnIndex()->setHelp('A game\'s screenshots, in their order');
+        yield VideoField::new('trailer')->setRequired(false)->setColumns(4)->hideOnIndex()->setHelp('A game\'s trailer: a video');
         yield AssociationField::new('parent', 'Famille')->setClass(Software::class)->setColumns(3)->setRequired(false)->setHelp('Listed under it on the site (base-bundle-admin under base-bundle)');
         yield IntegerField::new('position')->setColumns(3);
     }

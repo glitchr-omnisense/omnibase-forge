@@ -25,6 +25,20 @@ software:
   manage: "Gérer mes licences et mes clés"
   buy: "Acheter une licence"
   no_offer: "Pas de licence en vente pour l'instant : écrivez-nous."
+game:
+  play: "Jouer"
+  play_help: "Se joue dans la page, rien à installer. Rien ne démarre avant que vous appuyiez sur Jouer."
+  fullscreen: "Plein écran"
+  open: "Ouvrir seul"
+  locked: "Se joue avec une licence"
+  screenshots: "Captures d'écran"
+  trailer: "Bande-annonce"
+  builds: "Télécharger"
+  build_size: "{size} Mo"
+unity:
+  title: "Unity"
+  lead: "Ajoutez notre registre au Packages/manifest.json du projet, puis installez-le depuis Window > Package Manager > My Registries :"
+  token: "Sous licence : donnez au registre la clé de votre licence dans ~/.upmconfig.toml (%USERPROFILE%\\.upmconfig.toml sous Windows) :"
 offer:
   seats: "{count, plural, one {# poste} other {# postes}}"
   duration: "{months} mois"

@@ -6,7 +6,6 @@ use Base\Service\DownloadLinks;
 use Base\Forge\Entity\License;
 use Base\Forge\Entity\Release;
 use Base\Forge\Entity\Software;
-use Base\Forge\Repository\LicenseRepository;
 use Base\Forge\Repository\SoftwareRepository;
 use Git\Service\Git2Service;
 use Psr\Log\LoggerInterface;
@@ -28,7 +27,7 @@ class ComposerIndex
 {
     public function __construct(
         private readonly SoftwareRepository $software,
-        private readonly LicenseRepository $licenses,
+        private readonly LicenseHolders $holders,
         private readonly DownloadLinks $links,
         private readonly Git2Service $git,
         private readonly ?LoggerInterface $logger = null,
@@ -79,16 +78,7 @@ class ComposerIndex
      */
     public function authenticate(?string $email, ?string $key): array
     {
-        if (!$email || !$key || !LicenseKey::looksValid($key)) {
-            return [null, []];
-        }
-
-        $seat = $this->licenses->findSeatByKey($key);
-        if (!$seat || !$seat->getLicense()?->isValid() || 0 !== strcasecmp($seat->getEmail(), trim($email))) {
-            return [null, []];
-        }
-
-        return [$seat->getEmail(), $this->licenses->findValidByEmail($seat->getEmail())];
+        return $this->holders->authenticate($key, $email, true);
     }
 
     /** @param list<License> $licenses */

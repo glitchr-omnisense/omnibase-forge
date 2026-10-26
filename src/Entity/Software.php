@@ -9,6 +9,7 @@ use Base\Entity\User;
 use Base\Enum\ThreadState;
 use Base\Forge\Entity\Product\LicenseOffer;
 use Base\Forge\Enum\Pricing;
+use Base\Forge\Enum\SoftwareKind;
 use Base\Forge\Enum\SoftwareStatus;
 use Base\Forge\Repository\SoftwareRepository;
 use Base\Service\Model\LinkableInterface;
@@ -24,7 +25,10 @@ use Symfony\Component\Validator\Constraints as Assert;
  * its title, headline and content are translated (FR/EN), its slug and state
  * come with it - published, it is on the applications page. With a git
  * repository it gets releases; FREE ones download for anyone, LICENSED ones
- * against a licence bought through one of its LicenseOffer products.
+ * against a licence bought through one of its LicenseOffer products. Its
+ * kind says how it is delivered: a package (Composer, Unity's Package
+ * Manager), a game (played in the page, downloaded per platform) or an
+ * application.
  */
 #[ORM\Entity(repositoryClass: SoftwareRepository::class)]
 #[DiscriminatorEntry(value: 'forge_software')]
@@ -51,6 +55,9 @@ class Software extends Thread implements LinkableInterface
 
     #[ORM\Column(length: 16, nullable: true, enumType: Pricing::class)]
     protected ?Pricing $pricing = Pricing::FREE;
+
+    #[ORM\Column(length: 16, nullable: true, enumType: SoftwareKind::class)]
+    protected ?SoftwareKind $kind = SoftwareKind::PACKAGE;
 
     /** @var list<string>|null */
     #[ORM\Column(type: 'json', nullable: true)]
@@ -81,6 +88,14 @@ class Software extends Thread implements LinkableInterface
     protected ?string $packageName = null;
 
     /**
+     * Its name in the Unity registry (UpmRegistry, /upm), for a Unity
+     * package: com.glitchr.<name>, as its package.json says.
+     */
+    #[ORM\Column(length: 128, nullable: true)]
+    #[Assert\Regex('/^[a-z0-9_-]+(\.[a-z0-9_-]+)+$/')]
+    protected ?string $upmName = null;
+
+    /**
      * The card's picture: an upload (the back office, or the screenshot
      * command), stored by base-bundle's Uploader as a uuid - or, left as they
      * were (missable), a path under the public assets or an absolute URL.
@@ -89,6 +104,19 @@ class Software extends Thread implements LinkableInterface
     #[ORM\Column(length: 255, nullable: true)]
     #[Uploader(max_size: '8MB', mime_types: ['image/*'], missable: true)]
     protected $image = null;
+
+    /**
+     * A game's screenshots, uploads stored by base-bundle's Uploader (uuids),
+     * shown on its page in their order. Untyped, as the image.
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    #[Uploader(max_size: '8MB', mime_types: ['image/*'])]
+    protected $screenshots = [];
+
+    /** A game's trailer: an uploaded video, or (missable) a URL to one. */
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Uploader(max_size: '256MB', mime_types: ['video/*'], missable: true)]
+    protected $trailer = null;
 
     /** The live application, shown in a nested panel from the card. */
     #[ORM\Column(length: 255, nullable: true)]
@@ -190,6 +218,10 @@ class Software extends Thread implements LinkableInterface
     public function getStatus(): SoftwareStatus { return $this->status ?? SoftwareStatus::LIVE; }
     public function setStatus(SoftwareStatus $status): self { $this->status = $status; return $this; }
 
+    public function getKind(): SoftwareKind { return $this->kind ?? SoftwareKind::PACKAGE; }
+    public function setKind(SoftwareKind $kind): self { $this->kind = $kind; return $this; }
+    public function isGame(): bool { return SoftwareKind::GAME === $this->getKind(); }
+
     public function getPricing(): Pricing { return $this->pricing ?? Pricing::FREE; }
     public function setPricing(Pricing $pricing): self { $this->pricing = $pricing; return $this; }
     public function isFree(): bool { return $this->getPricing()->isFree(); }
@@ -218,10 +250,23 @@ class Software extends Thread implements LinkableInterface
     public function getPackageName(): ?string { return $this->packageName; }
     public function setPackageName(?string $packageName): self { $this->packageName = $packageName; return $this; }
 
+    public function getUpmName(): ?string { return $this->upmName; }
+    public function setUpmName(?string $upmName): self { $this->upmName = $upmName ?: null; return $this; }
+
     /** The picture's public path (an upload), or the stored path or URL as it is. */
     public function getImage(): ?string { return Uploader::getPublic($this, 'image'); }
     public function getImageFile() { return Uploader::get($this, 'image'); }
     public function setImage($image): self { $this->image = $image; return $this; }
+
+    /** @return list<string> the screenshots' public paths, in their order */
+    public function getScreenshots(): array { return array_values(array_filter((array) Uploader::getPublic($this, 'screenshots'))); }
+    public function getScreenshotFiles() { return Uploader::get($this, 'screenshots'); }
+    public function setScreenshots($screenshots): self { $this->screenshots = $screenshots; return $this; }
+
+    /** The trailer's public path (an upload), or the stored URL as it is. */
+    public function getTrailer(): ?string { return Uploader::getPublic($this, 'trailer'); }
+    public function getTrailerFile() { return Uploader::get($this, 'trailer'); }
+    public function setTrailer($trailer): self { $this->trailer = $trailer; return $this; }
 
     public function getDemoUrl(): ?string { return $this->demoUrl; }
     public function setDemoUrl(?string $demoUrl): self { $this->demoUrl = $demoUrl; return $this; }

@@ -11,7 +11,7 @@ use Git\Service\Git2Service;
  * Tags become releases: for each software with a repository, every tag that
  * reads as a version (v1.2.3, 1.2, 2.0.0-beta1) and has no release yet gets
  * one - its commit, its message as changelog, its date as publication - and
- * its zip.
+ * its zip, and its UPM tarball when the software is a Unity package.
  */
 class ReleaseSync
 {
@@ -47,7 +47,7 @@ class ReleaseSync
                 $release->setPublishedAt($details['date']);
 
                 if ($build) {
-                    $this->builder->build($release);
+                    $this->buildArchives($release);
                 }
             } catch (\Throwable $e) {
                 // Attached to its software by its constructor: left there, the
@@ -68,10 +68,19 @@ class ReleaseSync
         return $created;
     }
 
-    /** Rebuild one release's archive (a tag moved, the storage was lost). Flushed. */
+    /** Rebuild one release's archives (a tag moved, the storage was lost). Flushed. */
     public function rebuild(Release $release): void
     {
-        $this->builder->build($release);
+        $this->buildArchives($release);
         $this->entityManager->flush();
+    }
+
+    /** What is built from the tree at its tag: the zip, and the UPM tarball of a Unity package. */
+    private function buildArchives(Release $release): void
+    {
+        $this->builder->build($release);
+        if ($release->getSoftware()?->getUpmName()) {
+            $this->builder->buildUpm($release);
+        }
     }
 }

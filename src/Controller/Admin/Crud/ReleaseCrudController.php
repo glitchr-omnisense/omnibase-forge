@@ -12,7 +12,11 @@ use Base\Field\TextareaField;
 use Base\Field\TextField;
 use Base\Forge\Entity\Release;
 
-/** Releases: made from tags by forge:release:sync, or by hand; "Build" (re)makes the zip. */
+/**
+ * Releases: made from tags by forge:release:sync, or by hand; "Build" (re)makes
+ * the zip (and a Unity package's tarball); "Builds" lists and uploads a game's
+ * or an application's builds, one per platform.
+ */
 class ReleaseCrudController extends AbstractCrudController
 {
     public static function getEntityFqcn(): string
@@ -30,7 +34,10 @@ class ReleaseCrudController extends AbstractCrudController
         $build = Action::new('forgeBuild', 'Build', 'fa-solid fa-file-zipper')
             ->linkToRoute('forge_admin_release_build', fn (Release $release) => ['id' => $release->getId(), '_token' => $this->actionToken('forge_release_build', $release->getId())]);
 
-        return parent::configureActions($actions)->add(Action::INDEX, $build)->add(Action::DETAIL, $build);
+        $builds = Action::new('forgeBuilds', 'Builds', 'fa-solid fa-gamepad')
+            ->linkToRoute('forge_admin_release_builds', fn (Release $release) => ['id' => $release->getId()]);
+
+        return parent::configureActions($actions)->add(Action::INDEX, $build)->add(Action::DETAIL, $build)->add(Action::INDEX, $builds)->add(Action::DETAIL, $builds);
     }
 
     public function configureFields(string $pageName): iterable

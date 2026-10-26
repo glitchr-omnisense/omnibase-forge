@@ -1,0 +1,62 @@
+{% extends '@Admin/layout.html.twig' %}
+
+{% block page_title %}Builds — {{ release }}{% endblock %}
+
+{% block content_header %}
+<div class="admin-header">
+    <span class="admin-header-icon"><i class="fa-solid fa-gamepad"></i></span>
+    <div class="admin-header-titles">
+        <h1>Builds — {{ release }}</h1>
+        <div class="admin-header-subtitle">One build per platform. A new upload replaces the platform's previous build; a WebGL build is played in the game's page.</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+    .forge-builds { display: grid; gap: 1rem; max-width: 56rem; }
+    .forge-builds table { width: 100%; }
+    .forge-builds code { word-break: break-all; font-size: .8em; }
+    .forge-builds form.forge-builds-upload { display: grid; grid-template-columns: 12rem 1fr auto; gap: .75rem; align-items: end; }
+    .forge-builds label { display: grid; gap: .3rem; }
+    @media (max-width: 640px) { .forge-builds form.forge-builds-upload { grid-template-columns: 1fr; } }
+</style>
+<div class="forge-builds">
+    <div class="card" style="padding: 1rem 1.25rem;">
+        <table class="table">
+            <thead><tr><th>Platform</th><th>File</th><th>Size</th><th>sha256</th><th></th></tr></thead>
+            <tbody>
+            {% for artifact in release.platformArtifacts %}
+                <tr>
+                    <td><i class="{{ artifact.platform.icon }}" aria-hidden="true"></i> {{ artifact.platform.label }}</td>
+                    <td>{{ artifact.filename }}</td>
+                    <td>{{ (artifact.size / 1048576)|number_format(1) }} MB</td>
+                    <td><code>{{ artifact.sha256 }}</code></td>
+                    <td>
+                        <form method="post" data-confirm="Remove the {{ artifact.platform.label }} build?">
+                            <input type="hidden" name="_token" value="{{ csrf_token('forge_release_builds_' ~ release.id) }}">
+                            <button class="btn btn-link text-danger" name="remove" value="{{ artifact.format }}" type="submit" title="Remove"><i class="fa-solid fa-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="5">No build yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="card forge-builds-upload" style="padding: 1rem 1.25rem;">
+        <input type="hidden" name="_token" value="{{ csrf_token('forge_release_builds_' ~ release.id) }}">
+        <label>Platform
+            <select class="form-select" name="platform" required>
+                {% for platform in platforms %}<option value="{{ platform.value }}">{{ platform.label }} (.{{ platform.extensions|join(', .') }})</option>{% endfor %}
+            </select>
+        </label>
+        <label>Build
+            <input class="form-control" type="file" name="build" required>
+        </label>
+        <div><button class="btn btn-primary" type="submit"><i class="fa-solid fa-upload"></i> Attach</button></div>
+    </form>
+</div>
+{% endblock %}

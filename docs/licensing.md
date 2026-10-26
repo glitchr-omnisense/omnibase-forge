@@ -85,7 +85,10 @@ the latest then.
 
 ### Unity (C#)
 
-With an Ed25519 library (for instance Chaos.NaCl, or NSec):
+The `com.glitchr.licensing` package (served by the forge's Unity registry,
+see [upm.md](upm.md); source: github.com/glitchr-studio/unity-licensing)
+does all of it - `LicenseClient.ActivateAsync()`, `LicenseClient.Check()` -,
+with Ed25519 in managed code. By hand, with an Ed25519 library:
 
 ```csharp
 string[] parts = token.Split('.');

@@ -5,6 +5,8 @@ A software forge for [base-bundle](https://gitlab.glitchr.dev/public-repository/
 - **Software and releases.** Each git tag of a repository becomes a release. [git/git-bundle](https://gitlab.glitchr.dev/public-repository/agnostic/git) reads the tree in-process and the release is zipped from it.
 - **Downloads.** Free software downloads for anyone. Licensed software downloads against a licence bought as a market product (`LicenseOffer`). Files are served through signed, short-lived URLs and nginx `X-Accel-Redirect`.
 - **A private Composer repository.** `/composer/packages.json` lists the free packages for anyone, and the licensed ones for the holder of a valid licence. Authentication is HTTP Basic with the e-mail and the licence key.
+- **A Unity registry.** `/upm` speaks the npm registry protocol Unity's Package Manager reads from a scoped registry: free Unity packages for anyone, licensed ones with the licence key as the registry's token - see [docs/upm.md](docs/upm.md).
+- **Games and applications.** Builds per platform (WebGL, Windows, macOS, Linux, Android) attached to each release, a WebGL build played in the game's page with the headers Unity's compressed builds need, screenshots and a trailer - see [docs/games.md](docs/games.md).
 - **Client projects.**
   - A board the client and the studio both move cards on: its page, its script and its stylesheet are the bundle's - see [docs/board.md](docs/board.md).
   - The time the studio logs, and the history of the project's repository.

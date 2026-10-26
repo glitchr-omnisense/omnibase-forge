@@ -2,6 +2,7 @@
 
 namespace Base\Forge\Entity;
 
+use Base\Forge\Enum\Platform;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -86,6 +87,19 @@ class Release implements \Stringable
         }
 
         return $this;
+    }
+
+    /** @return list<Artifact> its builds, one per platform, in Platform's order */
+    public function getPlatformArtifacts(): array
+    {
+        $builds = [];
+        foreach (Platform::cases() as $platform) {
+            if ($artifact = $this->getArtifact($platform->value)) {
+                $builds[] = $artifact;
+            }
+        }
+
+        return $builds;
     }
 
     public function getArtifact(string $format = 'zip'): ?Artifact

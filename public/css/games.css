@@ -1,0 +1,33 @@
+/*
+ * A game's head on its page (templates/client/downloads/_game.html.twig): the stage the WebGL
+ * build plays in (16:9, its first screenshot behind the Play link until then), its trailer, its
+ * screenshots. Colours and fonts are the host's: only the layout is here.
+ */
+.forge-game { display: grid; gap: 1rem; margin-bottom: 1.5rem; }
+.forge-play-stage {
+    position: relative; aspect-ratio: 16 / 9; width: 100%; overflow: hidden;
+    background: #000 center / cover no-repeat; border-radius: .5rem;
+    display: grid; place-items: center;
+}
+.forge-play-stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #000; }
+.forge-play-start {
+    display: inline-flex; align-items: center; gap: .6em; padding: .8em 1.6em;
+    font-size: 1.15rem; font-weight: 700; color: #fff; text-decoration: none;
+    background: rgba(0, 0, 0, .72); border: 2px solid #fff; border-radius: .4rem;
+}
+.forge-play-start:hover, .forge-play-start:focus-visible { background: #000; }
+.forge-play-start.is-locked { opacity: .85; cursor: default; }
+.forge-play-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin: .5rem 0 0; }
+.forge-play-bar .forge-meta { flex: 1 1 16rem; }
+.forge-play-bar button.forge-link { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; color: inherit; }
+.forge-game-trailer { margin: 0; }
+.forge-game-trailer video { width: 100%; border-radius: .5rem; background: #000; }
+.forge-game-trailer figcaption { font-size: .9em; opacity: .75; }
+.forge-game-screenshots { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: .75rem; }
+.forge-game-screenshots img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: .35rem; }
+.forge-builds { list-style: none; margin: .5rem 0 0; padding: 0; display: grid; gap: .35rem; }
+.forge-builds li { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .75rem; }
+.forge-builds code { word-break: break-all; }
+@media (max-width: 640px) {
+    .forge-play-start { font-size: 1rem; padding: .7em 1.2em; }
+}
