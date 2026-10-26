@@ -29,7 +29,10 @@ class GameTest extends ForgeWebTestCase
         $page = $this->request('GET', '/telechargements/'.$game->getSlug());
         self::assertSame(200, $page->getStatusCode(), substr(strip_tags((string) $page->getContent()), 0, 1500));
         $dom = $this->xpath($page);
-        self::assertSame('/play/'.$game->getSlug().'/1.0.0', $dom->evaluate('string(//*[@data-forge-play-start]/@href)'), 'Play frames the build');
+        self::assertSame('/play/'.$game->getSlug().'/1.0.0/', $dom->evaluate('string(//*[@data-forge-play-start]/@href)'), 'Play frames the build, its folder');
+        $bare = $this->request('GET', '/play/'.$game->getSlug().'/1.0.0');
+        self::assertSame(301, $bare->getStatusCode(), 'without the slash, its files would be looked for a folder up');
+        self::assertStringEndsWith('/play/'.$game->getSlug().'/1.0.0/', (string) $bare->headers->get('Location'));
         self::assertSame(0, $dom->query('//*[@data-forge-play]//iframe')->length, 'nothing of the game before Play is pressed');
         self::assertSame(1, $dom->query('//script[contains(@src, "bundles/forge/js/play.js")]')->length);
         $windowsBuild = $release->getArtifact('windows');

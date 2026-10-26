@@ -20,7 +20,7 @@
     <div class="forge-play" data-forge-play>
         <div class="forge-play-stage" data-forge-play-stage{% if poster %} style="background-image: url('{{ poster|e('css') }}')"{% endif %}>
             {% if may_play %}
-            <a class="forge-play-start" href="{{ path('forge_play', {slug: software.slug, version: playable.version}) }}" target="_blank" rel="noopener" data-forge-play-start>
+            <a class="forge-play-start" href="{{ path('forge_play', {slug: software.slug, version: playable.version}) }}/" target="_blank" rel="noopener" data-forge-play-start>
                 <i class="fa-solid fa-play" aria-hidden="true"></i> {{ '@forge.game.play'|trans }}
             </a>
             {% else %}
@@ -31,7 +31,7 @@
             <span class="forge-meta">{{ playable.version }} · {{ '@forge.game.play_help'|trans }}</span>
             {% if may_play %}
             <button type="button" class="forge-link" data-forge-play-fullscreen hidden><i class="fa-solid fa-expand" aria-hidden="true"></i> {{ '@forge.game.fullscreen'|trans }}</button>
-            <a class="forge-link" href="{{ path('forge_play', {slug: software.slug, version: playable.version}) }}" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> {{ '@forge.game.open'|trans }}</a>
+            <a class="forge-link" href="{{ path('forge_play', {slug: software.slug, version: playable.version}) }}/" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> {{ '@forge.game.open'|trans }}</a>
             {% endif %}
         </p>
     </div>

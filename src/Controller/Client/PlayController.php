@@ -9,6 +9,7 @@ use Base\Forge\Security\Voter\ArtifactVoter;
 use Base\Forge\Service\WebglBuilds;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\Routing\Attribute\Route;
@@ -30,8 +31,14 @@ class PlayController extends AbstractController
     }
 
     #[Route('/play/{slug}/{version}/{path}', name: 'forge_play', requirements: ['slug' => '[a-z0-9\-]+', 'version' => '[0-9A-Za-z.\-]+', 'path' => '.*'], defaults: ['path' => ''], methods: ['GET', 'HEAD'])]
-    public function play(string $slug, string $version, string $path): Response
+    public function play(Request $request, string $slug, string $version, string $path): Response
     {
+        // The build's own page reads its files relative to its address: /play/<slug>/<version>/,
+        // never without the slash (Build/... would then be looked for one folder up).
+        if ('' === $path && !str_ends_with($request->getPathInfo(), '/')) {
+            return $this->redirect($request->getBaseUrl().$request->getPathInfo().'/', Response::HTTP_MOVED_PERMANENTLY);
+        }
+
         $software = $this->software->findOneBy(['slug' => $slug]);
         if (!$software instanceof Software || !$software->isVisible()) {
             throw $this->createNotFoundException(sprintf('No game "%s".', $slug));
