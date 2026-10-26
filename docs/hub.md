@@ -1,7 +1,7 @@
 # The hub
 
 The forge serves, beside its Unity registry ([upm.md](upm.md)), what the hub
-clients read: the Unity window `com.glitchr.hub` (Window > Hub, in the
+clients read: the Unity window `com.glitchr.hub` (Window > Glitch Art Hub, in the
 editor) and the desktop hub. A client is pointed at one URL, the **hub
 manifest**, and finds there the brand, the sources and whether something can
 be bought.
