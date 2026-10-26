@@ -13,7 +13,7 @@
         "quotes",
         "git"
     ],
-    "homepage": "https://github.com/glitchr-studio/omnibase-forge",
+    "homepage": "https://github.com/glitchr-omnisense/omnibase-forge",
     "license": "MIT",
     "authors": [
         {
@@ -37,10 +37,10 @@
         "doctrine/orm": "^2.15|^3.0",
         "git/git-bundle": "1.x-dev",
         "omnibridge/symfony": "1.x-dev",
-        "omniscient/omnibase": "3.0.*-dev || 4.0.*-dev",
+        "omnisense/omnibase": "3.0.*-dev || 4.0.*-dev",
         "omnibase/admin": "dev-main",
         "omnibase/marketplace": "dev-main",
-        "omniscient/omnistate": "1.x-dev",
+        "omnisense/omnistate": "1.x-dev",
         "omnistate/annuaire-entreprises": "1.x-dev",
         "symfony/config": "^6.0|^7.0|^8.0",
         "symfony/dependency-injection": "^6.0|^7.0|^8.0",

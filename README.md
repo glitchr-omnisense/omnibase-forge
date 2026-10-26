@@ -26,7 +26,7 @@ A software forge for [base-bundle](https://gitlab.glitchr.dev/public-repository/
 ## Requirements
 
 - PHP 8.2+, `ext-zip`
-- `omniscient/omnibase` 3.x, `omnibase/admin`, `omnibase/marketplace`
+- `omnisense/omnibase` 3.x, `omnibase/admin`, `omnibase/marketplace`
 - `git/git-bundle` 1.0, with the **php-git2** extension ([RogerGee/php-git2](https://github.com/RogerGee/php-git2))
 - `glitchr/omnistate` with `omnistate/annuaire-entreprises`: they turn on base-bundle-market's company register, which checks the SIRETs typed in quote requests against the State's free register
 
