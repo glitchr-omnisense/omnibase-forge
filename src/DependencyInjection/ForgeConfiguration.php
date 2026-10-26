@@ -31,6 +31,19 @@ class ForgeConfiguration implements ConfigurationInterface
                     ->info('Below this balance a client is reminded to top up (forge:hours:low-balance).')->end()
                 ->scalarNode('contact_email')->defaultNull()
                     ->info('Where quote requests are mailed. Null: they are only listed in the back office.')->end()
+                ->arrayNode('hub')
+                    ->info('The hub manifest (/upm/-/hub.json) the Unity window (com.glitchr.hub) and the desktop hub read: the brand and the sources. See docs/hub.md.')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->scalarNode('name')->defaultValue('Forge')->info('The hub\'s name, shown by the clients.')->end()
+                        ->scalarNode('logo')->defaultNull()->info('Its logo: an absolute URL, or a path on this site.')->end()
+                        ->scalarNode('color')->defaultNull()->info('Its accent colour, #rrggbb.')->end()
+                        ->arrayNode('scopes')->scalarPrototype()->end()->defaultValue([])
+                            ->info('The scopes of the Unity registry (com.glitchr): those of the Unity packages when empty.')->end()
+                        ->booleanNode('checkout')->defaultTrue()
+                            ->info('Whether the clients offer to buy: the licensed packages\' offers, bought on this site and linked to the editor by a device code.')->end()
+                    ->end()
+                ->end()
             ->end();
 
         return $treeBuilder;

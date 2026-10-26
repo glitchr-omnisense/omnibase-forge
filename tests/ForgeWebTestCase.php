@@ -34,9 +34,10 @@ abstract class ForgeWebTestCase extends KernelTestCase
     }
 
     /** One request to the kernel, with the visitor's cookies; the ones it sets are kept. */
-    protected function request(string $method, string $uri, array $server = [], ?string $body = null): Response
+    /** @param array<string, string> $parameters a form's fields (POST) */
+    protected function request(string $method, string $uri, array $server = [], ?string $body = null, array $parameters = []): Response
     {
-        $request = Request::create('https://localhost'.$uri, $method, [], $this->cookies, [], $server + ['REMOTE_ADDR' => '127.0.0.1', 'HTTP_USER_AGENT' => 'PHPUnit'], $body);
+        $request = Request::create('https://localhost'.$uri, $method, $parameters, $this->cookies, [], $server + ['REMOTE_ADDR' => '127.0.0.1', 'HTTP_USER_AGENT' => 'PHPUnit'], $body);
         $response = static::$kernel->handle($request);
         foreach ($response->headers->getCookies() as $cookie) {
             $this->cookies[$cookie->getName()] = (string) $cookie->getValue();

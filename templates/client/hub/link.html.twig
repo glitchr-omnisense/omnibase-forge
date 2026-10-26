@@ -1,0 +1,57 @@
+{% extends '@Forge/client/layout.html.twig' %}
+
+{% block forge_title %}{{ '@forge.hub.link.title'|trans }}{% endblock %}
+{% block forge_lead %}{{ '@forge.hub.link.lead'|trans }}{% endblock %}
+{% block forge_class %}forge-hub-link{% endblock %}
+
+{% block forge_body %}
+<div class="forge-columns">
+    <div class="forge-main">
+        {% if found and found.status == 'approved' %}
+            <p class="forge-badge is-free">{{ '@forge.hub.link.done'|trans }}</p>
+            <p>{{ '@forge.hub.link.done_text'|trans }}</p>
+        {% elseif not found %}
+            <form method="get" class="forge-hub-code">
+                <label>{{ '@forge.hub.link.code'|trans }}
+                    <input type="text" name="code" value="{{ code }}" autocomplete="off" autocapitalize="characters" required pattern="[A-Za-z]{4}-?[A-Za-z]{4}" placeholder="ABCD-EFGH">
+                </label>
+                <button type="submit" class="forge-btn forge-btn-primary"><span>{{ '@forge.hub.link.check'|trans }}</span></button>
+            </form>
+            {% if code %}<p class="forge-muted">{{ '@forge.hub.link.unknown'|trans }}</p>{% endif %}
+        {% else %}
+            <p>{{ '@forge.hub.link.confirm'|trans }} <strong class="forge-hub-usercode">{{ code }}</strong></p>
+            {% if seat %}
+            <form method="post">
+                <input type="hidden" name="_token" value="{{ csrf_token('forge_hub_link') }}">
+                <input type="hidden" name="code" value="{{ code }}">
+                <button type="submit" class="forge-btn forge-btn-primary"><span>{{ '@forge.hub.link.link'|trans }}</span></button>
+            </form>
+            <p class="forge-meta">{{ '@forge.hub.link.rekey'|trans({software: seat.license.software.name}) }}</p>
+            {% else %}
+            <p>{{ '@forge.hub.link.no_seat'|trans }}</p>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    {% if software and not (found and found.status == 'approved') %}
+    <aside class="forge-side">
+        <h2>{{ software.name }}</h2>
+        {% if software.tagline %}<p>{{ software.tagline }}</p>{% endif %}
+        {% for offer in offers %}
+        <div class="forge-offer">
+            <strong>{{ offer.title }}</strong>
+            <span class="forge-price">{% include '@Forge/client/_price.html.twig' with {product: offer} %}</span>
+            {# Bought in a tab of its own: this page stays, to link the editor once paid. #}
+            <form method="post" action="{{ path('marketplace_cart_add', {id: offer.id}) }}" target="_blank">
+                <input type="hidden" name="_token" value="{{ csrf_token('marketplace_cart') }}">
+                <button type="submit" class="forge-btn"><span>{{ '@forge.offer.add'|trans }}</span></button>
+            </form>
+        </div>
+        {% else %}
+            {% if not software.free %}<p>{{ '@forge.software.no_offer'|trans }}</p>{% endif %}
+        {% endfor %}
+        {% if offers|length %}<p class="forge-meta">{{ '@forge.hub.link.after_paying'|trans }}</p>{% endif %}
+    </aside>
+    {% endif %}
+</div>
+{% endblock %}

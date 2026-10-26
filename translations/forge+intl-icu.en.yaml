@@ -39,6 +39,20 @@ unity:
   title: "Unity"
   lead: "Add our registry to the project's Packages/manifest.json, then install it from Window > Package Manager > My Registries:"
   token: "Licensed: give the registry your licence key in ~/.upmconfig.toml (%USERPROFILE%\\.upmconfig.toml on Windows):"
+hub:
+  link:
+    title: "Link your editor"
+    lead: "Your Unity editor shows a code: confirm it here, and it receives the key to your licences."
+    code: "The code your editor shows"
+    check: "Continue"
+    unknown: "This code is unknown or has expired: ask your editor for a new one."
+    confirm: "The code your editor shows:"
+    link: "Link this editor"
+    rekey: "A new key is made for your seat of {software}: the key it had before stops working."
+    no_seat: "You hold no licence yet: buy one beside, then come back to this page and link the editor."
+    after_paying: "The shop opens in a new tab. Once paid, come back to this page and link the editor."
+    done: "Linked"
+    done_text: "Your editor has received your key: you can close this page and go back to Unity."
 offer:
   seats: "{count, plural, one {# seat} other {# seats}}"
   duration: "{months} months"

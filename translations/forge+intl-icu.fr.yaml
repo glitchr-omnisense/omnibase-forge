@@ -39,6 +39,20 @@ unity:
   title: "Unity"
   lead: "Ajoutez notre registre au Packages/manifest.json du projet, puis installez-le depuis Window > Package Manager > My Registries :"
   token: "Sous licence : donnez au registre la clé de votre licence dans ~/.upmconfig.toml (%USERPROFILE%\\.upmconfig.toml sous Windows) :"
+hub:
+  link:
+    title: "Relier votre éditeur"
+    lead: "Votre éditeur Unity affiche un code : confirmez-le ici, il reçoit la clé de vos licences."
+    code: "Le code affiché par votre éditeur"
+    check: "Continuer"
+    unknown: "Ce code est inconnu ou a expiré : demandez-en un nouveau à votre éditeur."
+    confirm: "Le code affiché par votre éditeur :"
+    link: "Relier cet éditeur"
+    rekey: "Une nouvelle clé est créée pour votre poste de {software} : la clé d'avant ne fonctionne plus."
+    no_seat: "Vous n'avez pas encore de licence : achetez-en une à côté, puis revenez sur cette page relier l'éditeur."
+    after_paying: "La boutique s'ouvre dans un nouvel onglet. Une fois payé, revenez sur cette page relier l'éditeur."
+    done: "Relié"
+    done_text: "Votre éditeur a reçu votre clé : vous pouvez fermer cette page et revenir dans Unity."
 offer:
   seats: "{count, plural, one {# poste} other {# postes}}"
   duration: "{months} mois"
