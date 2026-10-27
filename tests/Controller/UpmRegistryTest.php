@@ -25,14 +25,15 @@ class UpmRegistryTest extends ForgeWebTestCase
     {
         [$software, $name] = $this->package(Pricing::FREE, ['1.0.0', '1.1.0']);
 
-        $search = $this->get('/upm/-/v1/search?text=com.glitchr&from=0&size=250');
-        self::assertSame(200, $search->getStatusCode());
-        $objects = json_decode((string) $search->getContent(), true)['objects'];
+        self::assertSame(200, $this->get('/upm/-/v1/search?text=com.glitchr&from=0&size=250')->getStatusCode());
+        $objects = $this->searched('com.glitchr');
         $found = array_values(array_filter($objects, fn (array $object) => $object['package']['name'] === $name));
         self::assertCount(1, $found, 'the scope is searched');
         self::assertSame('1.1.0', $found[0]['package']['version'], 'the newest version');
         self::assertSame('Licensing probe', $found[0]['package']['displayName']);
-        $next = json_decode((string) $this->get('/upm/-/v1/search?text=com.glitchr&from=1000&size=250')->getContent(), true);
+        $total = json_decode((string) $this->get('/upm/-/v1/search?text=com.glitchr&from=0&size=1')->getContent(), true)['total'];
+        self::assertSame(\count($objects), $total, 'every page read, the total');
+        $next = json_decode((string) $this->get('/upm/-/v1/search?text=com.glitchr&from='.$total.'&size=250')->getContent(), true);
         self::assertSame([], $next['objects'], 'the page after the last is empty: the Package Manager stops there');
         self::assertArrayHasKey($name, json_decode((string) $this->get('/upm/-/all')->getContent(), true), 'the older listing too');
 
@@ -81,7 +82,7 @@ class UpmRegistryTest extends ForgeWebTestCase
         $otherKey = $issuer->rekey($otherLicense->getHolders()->first());
 
         // Anonymous: not listed, its document and its tarball a 401.
-        self::assertNotContains($name, $this->names($this->get('/upm/-/v1/search?text=com.glitchr')));
+        self::assertNotContains($name, $this->names($this->searched('com.glitchr')));
         self::assertSame(401, ($refused = $this->get('/upm/'.$name))->getStatusCode());
         self::assertStringContainsString('Bearer', (string) $refused->headers->get('WWW-Authenticate'));
         self::assertSame(401, $this->get('/upm/'.$name.'/-/'.$name.'-1.0.0.tgz')->getStatusCode());
@@ -94,7 +95,7 @@ class UpmRegistryTest extends ForgeWebTestCase
         self::assertSame(403, $this->get('/upm/'.$name.'/-/'.$name.'-1.0.0.tgz', 'Bearer '.$otherKey)->getStatusCode());
 
         // Its own key, as a Bearer: listed, described, installed.
-        self::assertContains($name, $this->names($this->get('/upm/-/v1/search?text=com.glitchr', 'Bearer '.$key)));
+        self::assertContains($name, $this->names($this->searched('com.glitchr', 'Bearer '.$key)));
         $document = $this->get('/upm/'.$name, 'Bearer '.$key);
         self::assertSame(200, $document->getStatusCode());
         $tarball = $this->get('/upm/'.$name.'/-/'.$name.'-1.0.0.tgz', 'Bearer '.$key);
@@ -174,10 +175,33 @@ class UpmRegistryTest extends ForgeWebTestCase
         return $this->request('GET', $uri, $authorization ? ['HTTP_AUTHORIZATION' => $authorization] : []);
     }
 
-    /** @return list<string> */
-    private function names(Response $search): array
+    /**
+     * Every package the search lists, page after page until an empty one, as the Package Manager
+     * reads it: the database may hold other packages of the scope (an application's own tests,
+     * earlier runs), and one page of them says nothing of this test's package.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function searched(string $text, ?string $authorization = null): array
     {
-        return array_map(fn (array $object) => $object['package']['name'], json_decode((string) $search->getContent(), true)['objects'] ?? []);
+        $objects = [];
+        for ($from = 0;; $from += 250) {
+            $page = json_decode((string) $this->get('/upm/-/v1/search?text='.rawurlencode($text).'&from='.$from.'&size=250', $authorization)->getContent(), true)['objects'] ?? [];
+            if ([] === $page) {
+                return $objects;
+            }
+            array_push($objects, ...$page);
+        }
+    }
+
+    /**
+     * @param list<array<string, mixed>> $objects
+     *
+     * @return list<string>
+     */
+    private function names(array $objects): array
+    {
+        return array_map(fn (array $object) => $object['package']['name'], $objects);
     }
 
     /** What a tarball response hands out: the file nginx is sent to (X-Accel-Redirect), or the file PHP streams. */
