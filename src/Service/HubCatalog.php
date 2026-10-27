@@ -64,6 +64,13 @@ class HubCatalog
                 'device' => $this->urls->generate('forge_hub_device', [], UrlGeneratorInterface::ABSOLUTE_URL),
                 'token' => $this->urls->generate('forge_hub_token', [], UrlGeneratorInterface::ABSOLUTE_URL),
             ] : null,
+            // The key's licences and their machines (licenses), and the licence API a machine
+            // activates and releases itself through (docs/licensing.md).
+            'licenses' => ($this->hub['checkout'] ?? true) ? [
+                'list' => $this->urls->generate('forge_hub_licenses', [], UrlGeneratorInterface::ABSOLUTE_URL),
+                'activate' => $this->urls->generate('forge_api_license_activate', [], UrlGeneratorInterface::ABSOLUTE_URL),
+                'release' => $this->urls->generate('forge_api_license_release', [], UrlGeneratorInterface::ABSOLUTE_URL),
+            ] : null,
         ], fn ($value) => null !== $value);
     }
 
@@ -133,6 +140,40 @@ class HubCatalog
         }
 
         return ['packages' => $packages, 'games' => $games];
+    }
+
+    /**
+     * The licences of a key's holder, as a hub client shows them: each one's software (its slug,
+     * which the licence API asks for), validity, seats, and the machines of that holder's seat -
+     * each with the SHA-256 of its identifier, which the client compares with its own.
+     *
+     * @param list<License> $licenses
+     */
+    public function licenses(array $licenses, string $email): array
+    {
+        $list = [];
+        foreach ($licenses as $license) {
+            $software = $license->getSoftware();
+            $seat = $license->findSeat($email);
+            $list[] = array_filter([
+                'id' => $license->getId(),
+                'software' => $software ? array_filter(['slug' => $software->getSlug(), 'name' => $software->getName(), 'upm' => $software->getUpmName(), 'page' => $this->urls->generate('forge_software', ['slug' => $software->getSlug()], UrlGeneratorInterface::ABSOLUTE_URL)]) : null,
+                'status' => $license->getStatus()->value,
+                'valid' => $license->isValid(),
+                'expires' => $license->getExpiresAt()?->format(\DATE_ATOM),
+                'updatesUntil' => $license->getUpdatesUntil()?->format(\DATE_ATOM),
+                'seats' => $license->getSeats(),
+                'machinesPerSeat' => $license->getMachinesPerSeat(),
+                'machines' => $seat ? array_values(array_map(fn ($a) => array_filter([
+                    'machine' => $a->getMachine(),
+                    'name' => $a->getName(),
+                    'platform' => $a->getPlatform(),
+                    'lastSeen' => $a->getLastSeenAt()->format(\DATE_ATOM),
+                ]), $seat->getActivations()->toArray())) : [],
+            ], fn ($value) => null !== $value);
+        }
+
+        return ['email' => $email, 'licenses' => $list];
     }
 
     /** @return list<array<string, mixed>> */

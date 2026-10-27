@@ -47,6 +47,18 @@ class HubController extends AbstractController
         return $this->document($this->catalog->catalog($caller[1]), Response::HTTP_OK, ['Cache-Control' => 'private, no-store']);
     }
 
+    /** The key's licences and the machines of its seat (a hub client's Licences page). */
+    #[Route('/hub/licenses', name: 'forge_hub_licenses', methods: ['GET'])]
+    public function licenses(Request $request): JsonResponse
+    {
+        $caller = $this->registry->authenticate($request->headers->get('Authorization'));
+        if (null === $caller || null === $caller[0]) {
+            return $this->document(['error' => 'A licence key is needed.'], Response::HTTP_UNAUTHORIZED, ['WWW-Authenticate' => 'Bearer realm="Glitch Art packages"']);
+        }
+
+        return $this->document($this->catalog->licenses($caller[1], $caller[0]), Response::HTTP_OK, ['Cache-Control' => 'private, no-store']);
+    }
+
     /** The editor asks for a code to show its user; the link page takes it. */
     #[Route('/hub/device', name: 'forge_hub_device', methods: ['POST'])]
     public function device(Request $request): JsonResponse

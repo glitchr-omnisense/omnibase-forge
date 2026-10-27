@@ -29,6 +29,7 @@ class HubTest extends ForgeWebTestCase
         self::assertSame('https://localhost/upm/-/hub/catalog.json', $manifest['sources'][0]['catalog']);
         self::assertSame('https://localhost/upm/-/hub/device', $manifest['checkout']['device']);
         self::assertSame('https://localhost/upm/-/hub/token', $manifest['checkout']['token']);
+        self::assertSame(['list' => 'https://localhost/upm/-/hub/licenses', 'activate' => 'https://localhost/api/licenses/activate', 'release' => 'https://localhost/api/licenses/release'], $manifest['licenses']);
     }
 
     public function testTheCatalogueAndTheDeviceFlow(): void
@@ -76,6 +77,13 @@ class HubTest extends ForgeWebTestCase
         $again = $this->request('POST', '/upm/-/hub/token', ['CONTENT_TYPE' => 'application/json'], json_encode(['device_code' => $device['device_code']]));
         self::assertSame('expired_token', json_decode((string) $again->getContent(), true)['error'], 'a key is handed over once');
 
+        // Its licences, and the machines of its seat once one is activated.
+        $licenses = $this->json('GET', '/upm/-/hub/licenses', null, $key['key']);
+        self::assertSame($buyer->getEmail(), $licenses['email']);
+        self::assertSame($paid->getSlug(), $licenses['licenses'][0]['software']['slug']);
+        self::assertSame([], $licenses['licenses'][0]['machines']);
+        self::assertSame(401, $this->request('GET', '/upm/-/hub/licenses')->getStatusCode(), 'no key, no licences');
+
         // That key is the registry's token now.
         self::assertSame(200, $this->request('GET', '/upm/-/hub/catalog.json', ['HTTP_AUTHORIZATION' => 'Bearer '.$key['key']])->getStatusCode());
         self::assertSame(401, $this->request('GET', '/upm/-/hub/catalog.json', ['HTTP_AUTHORIZATION' => 'Bearer glk_0000-0000-0000-0000-0000-0000-0000-0000'])->getStatusCode());
@@ -98,9 +106,9 @@ class HubTest extends ForgeWebTestCase
         return $game;
     }
 
-    private function json(string $method, string $uri, ?string $body = null): array
+    private function json(string $method, string $uri, ?string $body = null, ?string $key = null): array
     {
-        $response = $this->request($method, $uri, $body ? ['CONTENT_TYPE' => 'application/json'] : [], $body);
+        $response = $this->request($method, $uri, ($body ? ['CONTENT_TYPE' => 'application/json'] : []) + ($key ? ['HTTP_AUTHORIZATION' => 'Bearer '.$key] : []), $body);
         self::assertSame(Response::HTTP_OK, $response->getStatusCode(), (string) $response->getContent());
 
         return json_decode((string) $response->getContent(), true);

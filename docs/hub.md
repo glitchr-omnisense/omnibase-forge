@@ -27,6 +27,11 @@ be bought.
   "checkout": {
     "device": "https://glitchr.io/upm/-/hub/device",
     "token": "https://glitchr.io/upm/-/hub/token"
+  },
+  "licenses": {
+    "list": "https://glitchr.io/upm/-/hub/licenses",
+    "activate": "https://glitchr.io/api/licenses/activate",
+    "release": "https://glitchr.io/api/licenses/release"
   }
 }
 ```
@@ -86,3 +91,14 @@ The key is a new key of one of the user's seats (the seat's previous key
 stops working); it opens every licence of that e-mail, as for Composer. The
 editor stores it as the registry's token in the user's `~/.upmconfig.toml`,
 never in the project. The codes live ten minutes, in the cache only.
+
+## Licences: `GET /upm/-/hub/licenses`
+
+With the key as a Bearer: the holder's e-mail and each valid licence - its
+software (`slug`, which the licence API asks for, its name, its UPM name, its
+page), status, expiry, updates, seats, machines per seat, and the machines
+of that holder's seat, each with the SHA-256 of its identifier (`machine`),
+which a client compares with its own to say "this machine". A client
+activates and releases itself through the addresses the manifest lists
+under `licenses` (`/api/licenses/activate`, `/api/licenses/release`, see
+[licensing.md](licensing.md)).
