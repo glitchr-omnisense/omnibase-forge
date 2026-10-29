@@ -1,3 +1,8 @@
+---
+title: "The Unity registry"
+order: 36
+---
+
 # The Unity registry
 
 The forge serves its Unity packages to Unity's Package Manager as a

@@ -1,3 +1,8 @@
+---
+title: "Licensing a game or an application"
+order: 32
+---
+
 # Licensing a game or an application
 
 How a licensed piece of software - a Unity game, a desktop application such

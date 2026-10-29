@@ -1,3 +1,8 @@
+---
+title: "Games and applications"
+order: 31
+---
+
 # Games and applications
 
 A piece of software has a **kind** (`Software::$kind`, `SoftwareKind`):

@@ -1,3 +1,8 @@
+---
+title: "The hub"
+order: 35
+---
+
 # The hub
 
 The forge serves, beside its Unity registry ([upm.md](upm.md)), what the hub

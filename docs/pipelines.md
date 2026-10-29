@@ -1,3 +1,8 @@
+---
+title: "Pipelines"
+order: 34
+---
+
 # Pipelines
 
 A pipeline (`Base\Forge\Entity\Pipeline`) is one run of a project's checks on a commit - its tests, its build, its deployment -, wherever it ran: a forge's CI, a script. It has stages in order (`Stage`), each with its jobs (`Job`). The bundle records what happened and shows it; it runs nothing itself.

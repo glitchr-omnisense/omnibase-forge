@@ -1,3 +1,8 @@
+---
+title: "The project board"
+order: 33
+---
+
 # The project board
 
 A project (`Base\Forge\Entity\Project`) has a board: four columns (`Base\Forge\Enum\CardColumn`: to do, in progress, in review, delivered) and its cards (`Base\Forge\Entity\Card`), which the client and the studio both move. The bundle ships the whole of it: the page, the move, the script and the stylesheet.
