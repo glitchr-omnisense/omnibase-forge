@@ -2,6 +2,7 @@
 
 namespace Base\Forge\Entity;
 
+use Base\Contract\Link;
 use Base\Database\Attribute\DiscriminatorEntry;
 use Base\Database\Attribute\Uploader;
 use Base\Entity\Thread;
@@ -43,7 +44,7 @@ class Software extends Thread implements LinkableInterface
 
     public function __toLink(array $routeParameters = [], int $referenceType = UrlGeneratorInterface::ABSOLUTE_PATH): ?string
     {
-        return $this->getRouter()->generate('forge_software', array_merge($routeParameters, ['slug' => $this->getSlug()]), $referenceType);
+        return Link::to('forge_software', array_merge($routeParameters, ['slug' => $this->getSlug()]), $referenceType);
     }
 
     #[ORM\Column(length: 16, nullable: true)]
