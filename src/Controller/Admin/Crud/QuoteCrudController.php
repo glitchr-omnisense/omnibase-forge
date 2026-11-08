@@ -2,8 +2,6 @@
 
 namespace Base\Forge\Controller\Admin\Crud;
 
-use Doctrine\ORM\EntityManagerInterface;
-
 use Base\Admin\Config\Action;
 use Base\Admin\Config\Actions;
 use Base\Admin\Controller\AbstractCrudController;
@@ -19,7 +17,10 @@ use Base\Field\TextField;
 use Base\Forge\Entity\Quote;
 use Base\Forge\Enum\QuoteStatus;
 use Base\Forge\Form\QuoteLineType;
+use Base\Forge\Repository\QuoteRepository;
+use Omnibridge\Persistence\UnitOfWork;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
+use Symfony\Contracts\Service\Attribute\Required;
 
 /**
  * Quotes and special offers: requests arrive from the site; price the lines,
@@ -27,6 +28,8 @@ use Symfony\Component\Form\Extension\Core\Type\EnumType;
  */
 class QuoteCrudController extends AbstractCrudController
 {
+    private QuoteRepository $quotes;
+
     public static function getEntityFqcn(): string
     {
         return Quote::class;
@@ -75,15 +78,21 @@ class QuoteCrudController extends AbstractCrudController
         return (new Quote())->setStatus(QuoteStatus::DRAFT);
     }
 
+    #[Required]
+    public function setQuotes(QuoteRepository $quotes): void
+    {
+        $this->quotes = $quotes;
+    }
+
     /** Numbered when saved, not when the form opens: two forms open took the same number. */
-    public function persistEntity(EntityManagerInterface $entityManager, object $entity): void
+    public function persistRecord(UnitOfWork $unitOfWork, object $entity): void
     {
         if ($entity instanceof Quote) {
-            $entityManager->getRepository(Quote::class)->saveNumbered($entity);
+            $this->quotes->saveNumbered($entity);
 
             return;
         }
-        parent::persistEntity($entityManager, $entity);
+        parent::persistRecord($unitOfWork, $entity);
     }
 
     /** A token in the action's link, as for a logout: a link from elsewhere, a prefetch, does nothing (ActionController checks it). */

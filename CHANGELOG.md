@@ -3,6 +3,11 @@
 ## [Unreleased]
 
 ### Changed
+- `QuoteCrudController` numbers a new quote in `persistRecord()`, omnibase/admin's write hook on the persistence the site
+  chose, in place of the former `persistEntity(EntityManagerInterface)` (deprecated since the admin's step B1a); its
+  repository is given by `setQuotes()`. Needs omnibase/admin from its step B1a (`persistRecord()`, 2026-11-08).
+
+### Changed
 - Accepts omnisense/omnibase 5.0 (`3.0.*-dev || 4.0.*-dev || 5.0.*-dev`; plan "omnibase agnostic", step S): the bundle runs
   unchanged on it, `Base\Bundle\AbstractBaseBundle` and the other former names it uses being aliases of
   omnibridge/symfony's classes there. The sites on 4.x resolve as before.
