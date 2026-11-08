@@ -9,7 +9,7 @@ order: 10
 
 - PHP 8.2 or later, `ext-zip`;
 - doctrine/orm 2.15 or 3;
-- omnisense/omnibase 3.0 or 4.0, omnibridge/symfony 1.x, omnibase/admin,
+- omnisense/omnibase 3.0, 4.0 or 5.0, omnibridge/symfony 1.x, omnibase/admin,
   omnibase/marketplace;
 - git/git-bundle 1.x, with the php-git2 extension (`ext-git2`), to read the
   repositories (releases, the project's history);

@@ -37,7 +37,7 @@
         "doctrine/orm": "^2.15|^3.0",
         "git/git-bundle": "1.x-dev",
         "omnibridge/symfony": "1.x-dev",
-        "omnisense/omnibase": "3.0.*-dev || 4.0.*-dev",
+        "omnisense/omnibase": "3.0.*-dev || 4.0.*-dev || 5.0.*-dev",
         "omnibase/admin": "dev-main",
         "omnibase/marketplace": "dev-main",
         "omnisense/omnistate": "1.x-dev",
