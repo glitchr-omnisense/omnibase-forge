@@ -24,7 +24,7 @@ use Symfony\Component\Mailer\MailerInterface;
  * hours still unused (the ledger is one pool: the order's hours, capped by
  * the balance left).
  *
- * Paid online (through one of glitchr/omnitrade's gateways - Stripe, PayPal...
+ * Paid online (through one of omnisense/omnitrade's gateways - Stripe, PayPal...
  * - the marketplace's bridge keeps the provider's reference on the payment),
  * the amount goes back through that provider; otherwise (bank transfer) it is
  * recorded, to be wired back by hand. Then the hours leave the ledger, the order is
