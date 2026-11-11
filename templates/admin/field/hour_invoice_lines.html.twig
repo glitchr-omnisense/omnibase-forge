@@ -1,5 +1,4 @@
-{# An invoice of hours' lines (a draft: as it would issue now) and, under each, the time entries it bills. #}
-{%- set data = field.formattedValue -%}
+{# An invoice of hours' lines (a draft: as it would issue now) and, under each, the time entries it bills: `data`, HourInvoiceCrudController::lines(). #}
 {%- macro money(cents) -%}{{ (cents / 100)|number_format(2, ',', ' ') }} €{%- endmacro -%}
 {%- if data.lines is empty -%}
     <span style="color: var(--admin-muted)">{{ '@forge.invoice.admin.nothing'|trans }}</span>
