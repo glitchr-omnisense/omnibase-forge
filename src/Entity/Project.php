@@ -52,6 +52,14 @@ class Project extends Thread
     #[ORM\Column(type: 'date_immutable', nullable: true)]
     protected ?\DateTimeImmutable $dueOn = null;
 
+    /**
+     * In cents, before VAT: the project is invoiced on the time spent, at this
+     * rate an hour (Service\HourInvoices), and its time takes nothing off the
+     * client's support hours. Null: support hours, or the agreed budget.
+     */
+    #[ORM\Column(nullable: true)]
+    protected ?int $hourlyRate = null;
+
     /** @var Collection<int, Card> */
     #[ORM\OneToMany(targetEntity: Card::class, mappedBy: 'project', cascade: ['persist', 'remove'], orphanRemoval: true)]
     #[ORM\OrderBy(['position' => 'ASC'])]
@@ -104,6 +112,12 @@ class Project extends Thread
 
     public function getDueOn(): ?\DateTimeImmutable { return $this->dueOn; }
     public function setDueOn(?\DateTimeImmutable $dueOn): self { $this->dueOn = $dueOn; return $this; }
+
+    public function getHourlyRate(): ?int { return $this->hourlyRate; }
+    public function setHourlyRate(?int $hourlyRate): self { $this->hourlyRate = $hourlyRate ?: null; return $this; }
+
+    /** Whether its time is invoiced by the hour rather than taken off support hours. */
+    public function isInvoicedOnTime(): bool { return null !== $this->hourlyRate; }
 
     /** @return Collection<int, Card> */
     public function getCards(): Collection { return $this->cards; }

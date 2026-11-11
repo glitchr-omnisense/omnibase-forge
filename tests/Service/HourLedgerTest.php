@@ -52,6 +52,21 @@ class HourLedgerTest extends ForgeKernelTestCase
         self::assertNull($this->ledger()->debitFor(new TimeEntry(60, 'No project yet'), null));
     }
 
+    public function testTimeInvoicedByTheHourTakesNothingOffSupportHours(): void
+    {
+        $entry = new TimeEntry(60, 'Feature');
+        (new Project($this->user(), 'Shop'))->setHourlyRate(9000)->addTimeEntry($entry);
+        self::assertNull($this->ledger()->debitFor($entry, null));
+
+        // Debited before its project got a rate: it stays paid by support hours.
+        $before = new TimeEntry(30, 'Earlier');
+        $project = new Project($this->user(), 'Shop');
+        $project->addTimeEntry($before);
+        $existing = $this->ledger()->debitFor($before, null);
+        $project->setHourlyRate(9000);
+        self::assertSame($existing, $this->ledger()->debitFor($before, $existing));
+    }
+
     public function testMinutesFormatAsHours(): void
     {
         self::assertSame('3h30', TimeEntry::formatMinutes(210));

@@ -48,6 +48,9 @@ class ProjectCrudController extends AbstractCrudController
             ->formatValue(fn ($value) => $value instanceof ProjectStatus ? $value->value : $value);
         yield IntegerField::new('budgetMinutes', 'Budget (minutes)')->setRequired(false)->setColumns(3);
         yield DateField::new('dueOn')->setRequired(false)->setColumns(3);
+        // Set: the project is invoiced on the time spent (the invoices of hours), not on support hours.
+        yield IntegerField::new('hourlyRate', 'Hourly rate (cents, excl. VAT)')->setRequired(false)->setColumns(3)->hideOnIndex()
+            ->setHelp('Invoiced on the time spent at this rate (Invoices of hours); empty: support hours or the budget.');
         yield TextField::new('gitRepository', 'Git repository')->setRequired(false)->setColumns(4)->setHelp('git-bundle repository name');
         yield TextField::new('repositoryUrl')->setRequired(false)->setColumns(8)->hideOnIndex()->setHelp('Cloned by git:sync when not in git.repositories');
     }

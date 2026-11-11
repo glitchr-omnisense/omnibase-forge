@@ -44,13 +44,20 @@ class HourLedger
 
     /**
      * The debit line a time entry should have: its minutes, negated, on the
-     * project's client - or none, when it is not billable. Existing lines are
+     * project's client - or none, when it is not billable, or its project is
+     * invoiced on the time spent. Existing lines are
      * updated in place (TimeEntryLedgerSubscriber calls this in onFlush).
      */
     public function debitFor(TimeEntry $entry, ?HourCredit $existing): ?HourCredit
     {
         $client = $entry->getProject()?->getClient();
         if (!$client || !$entry->isBillable() || $entry->getMinutes() <= 0) {
+            return null;
+        }
+        // A project invoiced on the time spent: its hours are invoiced
+        // (Service\HourInvoices), not taken off the prepaid ones - never both.
+        // An entry already debited before the rate was set stays debited.
+        if (null === $existing && $entry->getProject()?->isInvoicedOnTime()) {
             return null;
         }
 
