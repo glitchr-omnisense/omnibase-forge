@@ -185,4 +185,18 @@ class HourInvoicesTest extends ForgeWebTestCase
         self::assertSame('O', $composer->exemption($seller, ['business' => true, 'vat_number' => null, 'address' => $address('CH')])['category'] ?? null, 'outside the EU: outside French VAT');
         self::assertNull($composer->exemption($seller, ['business' => true, 'vat_number' => null, 'address' => $address('GR')]), 'Greece is in the EU (EL in VIES)');
     }
+
+    public function testAnHourIsBilledByTheMinuteWorked(): void
+    {
+        $composer = static::getContainer()->get(HourInvoiceComposer::class);
+        $project = (new Project($this->user('partner'), 'Vitrine'))->setHourlyRate(9000);
+        $entry = new TimeEntry(265, 'Pages');
+        $project->addTimeEntry($entry);
+
+        ['lines' => [$line], 'totals' => $totals] = $composer->amounts(new HourInvoice(null, new \DateTimeImmutable('2026-10-01'), new \DateTimeImmutable('2026-10-31')), [$entry], null);
+        self::assertSame(4.4167, $line['quantity'], '4h25, to four decimals');
+        self::assertSame(39750, $line['total'], '265 minutes at 90 € an hour, not 4,42 h');
+        self::assertLessThanOrEqual(1, abs($line['quantity'] * $line['unit_price'] - $line['total']), 'hours x rate gives the amount back, to the cent');
+        self::assertSame(7950, $totals['vat']);
+    }
 }

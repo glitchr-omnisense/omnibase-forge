@@ -22,7 +22,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  *
  * marketplace's own InvoiceComposer writes them from an Order; an invoice of
  * hours has none, hence this one. One line per project: its time over the
- * period, in hours (two decimals), at its hourly rate before VAT.
+ * period, in hours (four decimals), at its hourly rate before VAT.
  *
  * The VAT, a service's (CGI art. 259 to 259 D):
  *   - the seller exempt (forge.invoicing.vat_exemption, the franchise of
@@ -149,8 +149,10 @@ final class HourInvoiceComposer
         foreach ($groups as $group) {
             $id = (string) (\count($lines) + 1);
             $unit = (int) $group['project']->getHourlyRate();
-            $hours = round($group['minutes'] / 60, 2);
-            $total = (int) round($hours * $unit);
+            // The amount of the minutes worked, to the cent; the hours to four decimals (Factur-X's
+            // quantity), so that hours x rate gives it back: 4h25 is 4,4167 h, never 4,42 h billed.
+            $hours = round($group['minutes'] / 60, 4);
+            $total = (int) round($group['minutes'] * $unit / 60);
             $lines[] = [
                 'id' => $id,
                 'label' => $this->trans('@forge.invoice.line', [

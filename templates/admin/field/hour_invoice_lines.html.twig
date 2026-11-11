@@ -23,7 +23,7 @@
                 </ul>
                 {%- endif -%}
             </td>
-            <td class="text-end">{{ line.quantity|number_format(2, ',', ' ') }}</td>
+            <td class="text-end">{{ line.quantity|number_format(4, ',', ' ')|trim('0', 'right')|trim(',', 'right') }}</td>
             <td class="text-end">{{ _self.money(line.unit_price) }}</td>
             <td class="text-end">{{ line.rate|number_format(1, ',', ' ') }} %</td>
             <td class="text-end">{{ _self.money(line.total) }}</td>
