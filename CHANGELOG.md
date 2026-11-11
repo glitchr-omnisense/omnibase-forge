@@ -13,6 +13,8 @@
   dropped. The back office's lines are the field's own template (`setTemplatePath()`), no longer rendered by the
   controller. **Requires** omnibase/marketplace a03428c, 92d9691, 2042c64 and omnibase/admin 4e689b3, updated with
   forge; an older marketplace refuses an invoice of hours with a message saying so.
+- `HourInvoice`'s keys to its invoice and credit note declare `onDelete: 'RESTRICT'` again, now that omnisense/omnibridge
+  (9e2b26d) describes RESTRICT as Doctrine does; the schema is the same (glitchr's migration already writes it).
 
 ### Added
 - The forge invoices its hours (plan 0, chantier I): a project invoiced on the time spent (`Project::$hourlyRate`)

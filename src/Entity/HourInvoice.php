@@ -57,16 +57,13 @@ class HourInvoice implements \Stringable
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $note = null;
 
-    /**
-     * Its invoice, and its credit note: never deleted (an issued invoice is kept), so their keys
-     * take no ON DELETE - the database refuses the deletion, as Doctrine reads RESTRICT anyway.
-     */
+    /** Its invoice, and its credit note: never deleted while an invoice of hours names them (an issued invoice is kept). */
     #[ORM\ManyToOne(targetEntity: Invoice::class)]
-    #[ORM\JoinColumn(nullable: true)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'RESTRICT')]
     private ?Invoice $invoice = null;
 
     #[ORM\ManyToOne(targetEntity: Invoice::class)]
-    #[ORM\JoinColumn(nullable: true)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'RESTRICT')]
     private ?Invoice $creditNote = null;
 
     #[ORM\Column(type: 'datetime_immutable')]
