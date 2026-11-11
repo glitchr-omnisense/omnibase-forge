@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixed
+- The board's `--forge-board-*` custom properties set on an ancestor of `.forge-board` reach it, as docs/board.md says:
+  `public/css/board.css` declared every default on `.forge-board` itself, so a wrapper's value was overridden. The
+  defaults are fallbacks of private `--_forge-board-*` tokens now (graphjs's pattern); `--forge-board-ink` falls back
+  to `currentColor` (an `inherit` fallback is not a colour).
+
 ### Added
 - The pipelines are read from the host of a project's repository: `Service\PipelineSync` records a project's latest
   runs - a run seen before brought up to date, its jobs no longer run taken out -, `forge:pipelines:sync

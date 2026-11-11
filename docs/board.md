@@ -44,7 +44,7 @@ A refused move is said with SweetAlert when the page has it (`window.Swal`), in 
 
 ## Its look
 
-The stylesheet sets no colour of its own beyond defaults; a site sets these on `.forge-board` or above:
+The stylesheet sets no colour of its own beyond defaults; a site sets these on `.forge-board` or on any element above it, with any selector (the defaults are fallbacks of private `--_forge-board-*` tokens: the public names are never declared by the stylesheet, so a value set on an ancestor reaches the board):
 
 ```css
 .forge-board {

@@ -1,23 +1,26 @@
 /*
  * A project's board (templates/client/project/_board.html.twig). No colour of its own beyond
- * these defaults: a site sets the custom properties on .forge-board, or on anything above it.
+ * these defaults: a site sets the custom properties (--forge-board-gap, -column, -card, -ink,
+ * -soft, -radius, -backlog, -progress, -review, -done) on .forge-board or on anything above it,
+ * with any selector - the defaults are fallbacks of private --_forge-board-* tokens, never
+ * declared under the public names, so a value set on an ancestor is inherited.
  */
 .forge-board {
-    --forge-board-gap: 1rem;
-    --forge-board-column: rgba(127, 127, 127, .12);
-    --forge-board-card: Canvas;
-    --forge-board-ink: inherit;
-    --forge-board-soft: GrayText;
-    --forge-board-radius: .75rem;
-    --forge-board-backlog: #8a8f98;
-    --forge-board-progress: #1c7ed6;
-    --forge-board-review: #f08c00;
-    --forge-board-done: #2f9e44;
+    --_forge-board-gap: var(--forge-board-gap, 1rem);
+    --_forge-board-column: var(--forge-board-column, rgba(127, 127, 127, .12));
+    --_forge-board-card: var(--forge-board-card, Canvas);
+    --_forge-board-ink: var(--forge-board-ink, currentColor);
+    --_forge-board-soft: var(--forge-board-soft, GrayText);
+    --_forge-board-radius: var(--forge-board-radius, .75rem);
+    --_forge-board-backlog: var(--forge-board-backlog, #8a8f98);
+    --_forge-board-progress: var(--forge-board-progress, #1c7ed6);
+    --_forge-board-review: var(--forge-board-review, #f08c00);
+    --_forge-board-done: var(--forge-board-done, #2f9e44);
     display: grid;
     grid-template-columns: repeat(4, minmax(13rem, 1fr));
-    gap: var(--forge-board-gap);
+    gap: var(--_forge-board-gap);
     align-items: start;
-    color: var(--forge-board-ink);
+    color: var(--_forge-board-ink);
 }
 .forge-board-scroll { overflow-x: auto; padding-bottom: .25rem; }
 .forge-board-column {
@@ -26,11 +29,11 @@
     gap: .5rem;
     min-height: 8rem;
     padding: .75rem;
-    border-radius: var(--forge-board-radius);
-    background: var(--forge-board-column);
+    border-radius: var(--_forge-board-radius);
+    background: var(--_forge-board-column);
     transition: box-shadow .15s;
 }
-.forge-board-column.is-over { box-shadow: inset 0 0 0 2px var(--forge-board-progress); }
+.forge-board-column.is-over { box-shadow: inset 0 0 0 2px var(--_forge-board-progress); }
 .forge-board-column h3 {
     display: flex;
     justify-content: space-between;
@@ -40,24 +43,24 @@
     letter-spacing: .04em;
     text-transform: uppercase;
 }
-.forge-board-column h3 span { color: var(--forge-board-soft); font-variant-numeric: tabular-nums; }
+.forge-board-column h3 span { color: var(--_forge-board-soft); font-variant-numeric: tabular-nums; }
 .forge-board-card {
     margin: 0;
     padding: .6rem .75rem;
-    border-left: 3px solid var(--forge-board-backlog);
-    border-radius: calc(var(--forge-board-radius) * .66);
-    background: var(--forge-board-card);
+    border-left: 3px solid var(--_forge-board-backlog);
+    border-radius: calc(var(--_forge-board-radius) * .66);
+    background: var(--_forge-board-card);
     font-size: .9rem;
     line-height: 1.35;
     overflow-wrap: anywhere;
 }
-.forge-board-card.is-progress { border-left-color: var(--forge-board-progress); }
-.forge-board-card.is-review { border-left-color: var(--forge-board-review); }
-.forge-board-card.is-done { border-left-color: var(--forge-board-done); }
+.forge-board-card.is-progress { border-left-color: var(--_forge-board-progress); }
+.forge-board-card.is-review { border-left-color: var(--_forge-board-review); }
+.forge-board-card.is-done { border-left-color: var(--_forge-board-done); }
 .forge-board.is-editable .forge-board-card { cursor: grab; }
 .forge-board-card.is-dragging { opacity: .45; }
-.forge-board-card:focus-visible { outline: 2px solid var(--forge-board-progress); outline-offset: 2px; }
+.forge-board-card:focus-visible { outline: 2px solid var(--_forge-board-progress); outline-offset: 2px; }
 .forge-board-card-title { display: block; }
-.forge-board-card-label { display: block; margin-top: .25rem; color: var(--forge-board-soft); font-size: .75rem; }
-.forge-board-card-text { margin: .35rem 0 0; color: var(--forge-board-soft); font-size: .8rem; }
+.forge-board-card-label { display: block; margin-top: .25rem; color: var(--_forge-board-soft); font-size: .75rem; }
+.forge-board-card-text { margin: .35rem 0 0; color: var(--_forge-board-soft); font-size: .8rem; }
 .forge-board-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
