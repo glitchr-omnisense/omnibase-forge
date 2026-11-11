@@ -33,6 +33,28 @@ abstract class ForgeWebTestCase extends KernelTestCase
         $this->cookies = [];
     }
 
+    /**
+     * PHPUnit keeps every test case to the end of the run: what a case holds
+     * - its entity manager, the users and records it made, the services it
+     * took from the container - would keep each kernel it booted alive with
+     * it (30 MB a test in BoardControllerTest). Once the kernel is shut down,
+     * the properties of the case and of this class go.
+     */
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+
+        for ($class = new \ReflectionClass($this); KernelTestCase::class !== $class->getName(); $class = $class->getParentClass()) {
+            foreach ($class->getProperties() as $property) {
+                if ($property->getDeclaringClass()->getName() !== $class->getName() || $property->isStatic() || $property->isReadOnly() || !$property->isInitialized($this)) {
+                    continue;
+                }
+                $name = $property->getName();
+                \Closure::bind(function () use ($name): void { unset($this->{$name}); }, $this, $class->getName())();
+            }
+        }
+    }
+
     /** One request to the kernel, with the visitor's cookies; the ones it sets are kept. */
     /** @param array<string, string> $parameters a form's fields (POST) */
     protected function request(string $method, string $uri, array $server = [], ?string $body = null, array $parameters = []): Response
