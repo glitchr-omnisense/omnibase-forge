@@ -34,6 +34,9 @@ omnibase/marketplace: what a studio sells besides its time. Its namespace is
   debits it; the balance is the sum of the ledger's lines.
 - **Quotes.** Asked from the site, priced and sent from the back office,
   accepted and paid like any order, their hours credited ([Quotes](quotes.md)).
+- **Invoices of hours.** A project invoiced on the time spent: its hours
+  invoiced month by month as omnibase/marketplace's `Invoice`, each hour
+  knowing the line that billed it ([Invoices of hours](invoices.md)).
 
 ## Pages
 
@@ -45,6 +48,7 @@ omnibase/marketplace: what a studio sells besides its time. Its namespace is
 - [The hub](hub.md)
 - [The Unity registry](upm.md)
 - [Quotes](quotes.md)
+- [Invoices of hours](invoices.md)
 - [Configuration reference](configuration.md)
 - [Reference](reference.md)
 - [Testing](testing.md)

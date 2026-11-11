@@ -1,0 +1,46 @@
+{% extends '@Forge/client/layout.html.twig' %}
+
+{% block forge_title %}{{ '@forge.invoice.client.title'|trans }}{% endblock %}
+{% block forge_lead %}{{ '@forge.invoice.client.lead'|trans }}{% endblock %}
+{% block forge_class %}forge-invoices{% endblock %}
+{% block background %}whitey{% endblock %}
+
+{% macro money(cents) %}{{ (cents / 100)|number_format(2, ',', ' ') }} €{% endmacro %}
+
+{% block forge_body %}
+<section class="forge-section">
+{% if rows is empty %}
+    <p class="forge-empty">{{ '@forge.invoice.client.none'|trans }}</p>
+{% else %}
+    <table class="forge-table forge-invoices-table">
+        <thead><tr>
+            <th>{{ '@forge.invoice.client.number'|trans }}</th>
+            <th>{{ '@forge.invoice.client.period'|trans }}</th>
+            <th>{{ '@forge.invoice.client.issued_at'|trans }}</th>
+            <th class="text-end">{{ '@forge.invoice.client.total'|trans }}</th>
+            <th>{{ '@forge.invoice.client.state'|trans }}</th>
+            <th></th>
+        </tr></thead>
+        <tbody>
+        {% for row in rows %}
+            <tr class="is-{{ row.invoice.state }}">
+                <td><a href="{{ path('marketplace_invoice', {number: row.invoice.number}) }}" data-turbo="false" data-transparent="false">{{ row.invoice.number }}</a></td>
+                <td>{{ row.hours.periodStart|date('d/m/Y') }} → {{ row.hours.periodEnd|date('d/m/Y') }}</td>
+                <td>{{ row.invoice.issuedAt|date('d/m/Y') }}</td>
+                <td class="text-end">{{ _self.money(row.invoice.total) }}</td>
+                <td>
+                    {{ ('@forge.invoice.client.states.' ~ row.invoice.state)|trans }}
+                    {% if row.invoice.dueAt and not row.invoice.paid and not row.invoice.cancelled %}<small>· {{ '@forge.invoice.client.due'|trans({'{date}': row.invoice.dueAt|date('d/m/Y')}) }}</small>{% endif %}
+                    {% if row.lifecycle %}<br><small>{{ row.lifecycle }}</small>{% endif %}
+                </td>
+                <td>
+                    <a href="{{ path('marketplace_invoice', {number: row.invoice.number, download: 1}) }}" data-turbo="false" data-transparent="false" download><i class="fa-solid fa-file-pdf"></i> PDF</a>
+                    {% if row.credit_note %}<br><a href="{{ path('marketplace_invoice', {number: row.credit_note.number}) }}" data-turbo="false" data-transparent="false"><i class="fa-solid fa-rotate-left"></i> {{ '@forge.invoice.client.credit_note'|trans({'{number}': row.credit_note.number}) }}</a>{% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+</section>
+{% endblock %}

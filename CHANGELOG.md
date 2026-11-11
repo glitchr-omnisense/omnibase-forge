@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+- The forge invoices its hours (plan 0, chantier I): a project invoiced on the time spent (`Project::$hourlyRate`)
+  takes nothing off support hours; its time is invoiced month by month to the Partner as omnibase/marketplace's
+  `Invoice` - same numbering under symfony/lock, PDF, Factur-X, sending through omnibill or e-mail, credit notes.
+  `Entity\HourInvoice` (draft, issued, cancelled), `TimeEntry::$hourInvoice` / `$invoiceLine` (the line that billed
+  an hour), `Invoice\HourInvoiceComposer`, `Service\HourInvoices`, `EventListener\HourInvoiceCancelListener` (any
+  credit note releases the hours), `Security\Voter\HourInvoiceVoter` (the Partner reads the PDF on
+  `/factures/{number}`), the back office's `HourInvoiceCrudController`, the Partner's `/compte/factures`
+  (`forge_account_invoices`), configuration `forge.invoicing.vat_rate` / `vat_exemption`. **A site adds by a
+  migration** the table `forge_hour_invoice`, the columns `forge_time_entry.hourInvoice_id`, `invoiceLine` and the
+  project's `hourlyRate`. docs/invoices.md; tests/Service/HourInvoicesTest, HourLedgerTest.
+
 ### Fixed
 - The board's `--forge-board-*` custom properties set on an ancestor of `.forge-board` reach it, as docs/board.md says:
   `public/css/board.css` declared every default on `.forge-board` itself, so a wrapper's value was overridden. The

@@ -26,6 +26,7 @@ order: 45
 | `forge_api_license_activate`, `forge_api_license_release` | `/api/licenses/activate`, `/api/licenses/release` | POST | a licence key ([Licensing](licensing.md)) |
 | `forge_api_license_public_key` | `/api/licenses/public-key` | GET | everyone: the key that checks activation tokens |
 | `forge_account_licenses` | `/compte/licences` | any | `ROLE_USER` |
+| `forge_account_invoices` | `/compte/factures` | GET | `ROLE_USER`: the Partner's invoices of hours |
 | `forge_license_rekey` | `/compte/licences/{id}/cle` | POST | `ROLE_USER`: a new key, shown once |
 | `forge_license_seat_give` | `/compte/licences/{id}/postes` | POST | `ROLE_USER` |
 | `forge_license_seat_take_back` | `/compte/licences/{id}/postes/{seat}/retirer` | POST | `ROLE_USER` |

@@ -40,6 +40,15 @@ forge:
     # Where quote requests are mailed. Null: they are only listed in the back office.
     contact_email:        null
 
+    # The invoices of hours (Service\HourInvoices): omnibase/marketplace's Invoice, numbered, worded and sent by its marketplace.invoice settings.
+    invoicing:
+
+        # The VAT rate a new draft starts with, in percent (France's normal rate, CGI art. 278).
+        vat_rate:             20.0
+
+        # The seller charges no VAT: the mention printed in its place - "TVA non applicable, art. 293 B du CGI" for the franchise. Null: VAT is charged.
+        vat_exemption:        null
+
     # The hub manifest (/upm/-/hub.json) the Unity window (com.glitchr.hub) and the desktop hub read: the brand and the sources. See docs/hub.md.
     hub:
 
@@ -70,6 +79,7 @@ forge:
 | `hourly_rate` | 6000 | a quote line's default rate, in cents |
 | `low_balance_minutes` | 120 | `forge:hours:low-balance`: the balance under which a client is reminded |
 | `contact_email` | null | where quote requests are mailed; null, the back office only |
+| `invoicing.vat_rate`, `invoicing.vat_exemption` | 20.0, null | the invoices of hours ([Invoices of hours](invoices.md)) |
 | `hub.name`, `logo`, `color`, `scopes`, `checkout` | `Forge`, none, none, the Unity packages', true | the hub manifest ([The hub](hub.md)) |
 
 Each key is a container parameter (`%forge.storage_dir%`,

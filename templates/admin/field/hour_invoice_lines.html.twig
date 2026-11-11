@@ -1,0 +1,45 @@
+{# An invoice of hours' lines (a draft: as it would issue now) and, under each, the time entries it bills. #}
+{%- set data = field.formattedValue -%}
+{%- macro money(cents) -%}{{ (cents / 100)|number_format(2, ',', ' ') }} €{%- endmacro -%}
+{%- if data.lines is empty -%}
+    <span style="color: var(--admin-muted)">{{ '@forge.invoice.admin.nothing'|trans }}</span>
+{%- else -%}
+<table class="table forge-hour-invoice-lines">
+    <thead><tr>
+        <th>{{ '@forge.invoice.admin.line'|trans }}</th>
+        <th class="text-end">{{ '@forge.invoice.admin.hours'|trans }}</th>
+        <th class="text-end">{{ '@forge.invoice.admin.rate'|trans }}</th>
+        <th class="text-end">{{ '@forge.invoice.admin.vat'|trans }}</th>
+        <th class="text-end">{{ '@forge.invoice.admin.amount'|trans }}</th>
+    </tr></thead>
+    <tbody>
+    {%- for line in data.lines -%}
+        <tr>
+            <td><strong>{{ line.label }}</strong>
+                {%- if data.entries[line.id] is defined -%}
+                <ul class="forge-hour-invoice-entries">
+                    {%- for entry in data.entries[line.id] -%}
+                    <li><time>{{ entry.spentOn|date('d/m/Y') }}</time> · {{ entry.note }} · {{ entry.minutes // 60 }}h{{ '%02d'|format(entry.minutes % 60) }}</li>
+                    {%- endfor -%}
+                </ul>
+                {%- endif -%}
+            </td>
+            <td class="text-end">{{ line.quantity|number_format(2, ',', ' ') }}</td>
+            <td class="text-end">{{ _self.money(line.unit_price) }}</td>
+            <td class="text-end">{{ line.rate|number_format(1, ',', ' ') }} %</td>
+            <td class="text-end">{{ _self.money(line.total) }}</td>
+        </tr>
+    {%- endfor -%}
+    </tbody>
+    <tfoot>
+        <tr><td colspan="4" class="text-end">{{ '@forge.invoice.admin.total_without_vat'|trans }}</td><td class="text-end">{{ _self.money(data.totals.total_without_vat) }}</td></tr>
+        <tr><td colspan="4" class="text-end">{{ '@forge.invoice.admin.vat'|trans }}</td><td class="text-end">{{ _self.money(data.totals.vat) }}</td></tr>
+        <tr><td colspan="4" class="text-end"><strong>{{ '@forge.invoice.admin.total'|trans }}</strong></td><td class="text-end"><strong>{{ _self.money(data.totals.total) }}</strong></td></tr>
+    </tfoot>
+</table>
+{%- if data.mentions is not empty -%}
+<ul class="forge-hour-invoice-mentions" style="color: var(--admin-muted); font-size: .85em">
+    {%- for mention in data.mentions -%}<li>{{ mention }}</li>{%- endfor -%}
+</ul>
+{%- endif -%}
+{%- endif -%}
