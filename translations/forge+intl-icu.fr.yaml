@@ -227,7 +227,6 @@ pipeline:
 invoice:
   line: "{project} — temps passé du {from} au {to} ({time})"
   mention:
-    period: "Prestations réalisées du {from} au {to}."
     outside_eu: "TVA non applicable - article 259-1 du CGI : prestation de services à un preneur établi hors de l'Union européenne."
   status:
     draft: "Brouillon"

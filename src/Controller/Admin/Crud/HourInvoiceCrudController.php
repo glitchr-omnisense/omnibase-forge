@@ -119,10 +119,8 @@ class HourInvoiceCrudController extends AbstractCrudController
             ->formatValue(fn ($value, HourInvoice $hours) => $this->hourInvoices->lifecycle($hours) ?? '—');
         // The lines it issues (a draft: as it would now), and the time entries each bills.
         yield TextField::new('lines', '@forge.invoice.admin.lines')->onlyOnDetail()
-            // Rendered here (escaped by its template) and printed as it is: the admin's detail page includes
-            // its own field templates only (@Admin/<templateName>), not a bundle's setTemplatePath().
-            ->formatValue(fn ($value, HourInvoice $hours) => $this->renderView('@Forge/admin/field/hour_invoice_lines.html.twig', ['data' => $this->lines($hours)]))
-            ->setCustomOption('renderAsHtml', true);
+            ->formatValue(fn ($value, HourInvoice $hours) => $this->lines($hours))
+            ->setTemplatePath('@Forge/admin/field/hour_invoice_lines.html.twig');
     }
 
     public function createEntity(string $entityFqcn): object

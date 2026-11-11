@@ -227,7 +227,6 @@ pipeline:
 invoice:
   line: "{project} — time spent from {from} to {to} ({time})"
   mention:
-    period: "Services rendered from {from} to {to}."
     outside_eu: "VAT not applicable - article 259-1 of the CGI: services to a customer established outside the European Union."
   status:
     draft: "Draft"

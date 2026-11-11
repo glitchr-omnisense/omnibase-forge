@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Changed
+- The invoices of hours are issued through omnibase/marketplace's `Invoices::issueFor()` (and previewed by
+  `compose()`): `Invoice\HourInvoiceComposer::source()` gives a `Model\InvoiceSource` - the buyer from
+  `InvoiceComposer::buyerOf()`, the lines, the totals, the VAT of a service - and marketplace writes the seller, the
+  mentions and the number. Its `seller()`, `buyer()`, `mentions()` and `creditMention()` are gone, and with them the
+  settings forge read for them. A credit note's reason is passed as typed: marketplace names the invoice it
+  cancels. Each line gives its period (the month): the invoice's billing period, "Période de facturation" on the PDF,
+  BT-73/74 in the Factur-X; the mention "Prestations réalisées du … au …" (`@forge.invoice.mention.period`) is
+  dropped. The back office's lines are the field's own template (`setTemplatePath()`), no longer rendered by the
+  controller. **Requires** omnibase/marketplace a03428c, 92d9691, 2042c64 and omnibase/admin 4e689b3, updated with
+  forge; an older marketplace refuses an invoice of hours with a message saying so.
+
 ### Added
 - The forge invoices its hours (plan 0, chantier I): a project invoiced on the time spent (`Project::$hourlyRate`)
   takes nothing off support hours; its time is invoiced month by month to the Partner as omnibase/marketplace's

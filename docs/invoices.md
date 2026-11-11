@@ -15,9 +15,9 @@ an order would otherwise say: which hours, at which rate.
 | Here | From omnibase/marketplace |
 |---|---|
 | `Entity\HourInvoice` (table `forge_hour_invoice`): the draft, then the record of the issued invoice and its credit note | `Entity\Invoice` (order `NULL`), never edited once issued |
-| `TimeEntry::$hourInvoice`, `$invoiceLine`: the line that billed an hour | `Invoice::getLines()` (`id`, `quantity` in hours, `unit_price` the rate, `unit` HUR) |
-| `Invoice\HourInvoiceComposer`: seller, buyer, lines, totals, mentions | the same shape as `Invoice\InvoiceComposer` writes from an order, the settings `marketplace.invoice.*` and the wording `@marketplace.invoice.mention.*` |
-| `Service\HourInvoices`: `draft()`, `discard()`, `preview()`, `issue()`, `send()`, `markPaid()`, `credit()`, `lifecycle()` | `Invoice\InvoiceNumbering::issue()` (symfony/lock), `Service\Invoices::send()`, `credit()` / `reissue()`, `pdf()`, `lifecycle()`, `guidance()` |
+| `TimeEntry::$hourInvoice`, `$invoiceLine`: the line that billed an hour | `Invoice::getLines()` (`id`, `quantity` in hours, `unit_price` the rate, `unit` HUR, `period` the month) |
+| `Invoice\HourInvoiceComposer::source()`: the lines, the totals, the VAT of a service | `Model\InvoiceSource`, the buyer from `Invoice\InvoiceComposer::buyerOf()`; the seller and every mention written by marketplace from `marketplace.invoice.*` |
+| `Service\HourInvoices`: `draft()`, `discard()`, `preview()`, `issue()`, `send()`, `markPaid()`, `credit()`, `lifecycle()` | `Service\Invoices::compose()`, `issueFor()` (numbered under symfony/lock), `send()`, `reissue()`, `pdf()`, `lifecycle()`, `guidance()` |
 | `EventListener\HourInvoiceCancelListener` | any credit note - the forge's screen or marketplace's - releases the hours |
 | `Security\Voter\HourInvoiceVoter` | the Partner reads the PDF on `/factures/{number}` (`marketplace_invoice`) |
 
@@ -40,7 +40,7 @@ an order would otherwise say: which hours, at which rate.
    invoice's page; marketplace's own e-mail otherwise.
 4. **Paid**, or **cancelled by a credit note** (`A-2026-…`, "Avoir annulant la
    facture …"): marketplace's `reissue()` rule - an issued invoice is never
-   edited -; an invoice of hours has no order to issue again from, so its hours
+   edited -, the reason given printed after that mention; an invoice of hours has no order to issue again from, so its hours
    are released and a new draft invoices them.
 
 The Partner sees their issued invoices, their state and their credit notes at
@@ -53,8 +53,10 @@ The Partner sees their issued invoices, their state and their credit notes at
 - **When**: a periodic invoice for the services of one calendar month, issued by
   its end (CGI art. 289, I-3; BOI-TVA-DECLA-30-20-10-40 §80-100) - hence the
   period within one month (`HourInvoice::validatePeriod()`). The completion date
-  of the services is the period's end (`Invoice::getSoldAt()`), the period is
-  printed ("Prestations réalisées du … au …").
+  of the services is the period's end (`Invoice::getSoldAt()`, printed "Date de
+  réalisation des prestations"); the period is each line's, the invoice's
+  billing period (`Invoice::getBillingPeriod()`: "Période de facturation" on the
+  PDF, BT-73/74 and BT-134/135 in the Factur-X).
 - **Mentions**: marketplace's (service-public F31808), with the nature of the
   operations set to services, the option for VAT on debits
   (`marketplace.invoice.vat_on_debits`), the due date (`payment_days`), and, to
@@ -69,8 +71,7 @@ The Partner sees their issued invoices, their state and their credit notes at
 
 Not done here: the e-reporting of the services' payment data (B2C and
 international B2B: marketplace's `EReporting` reads paid orders, which an
-invoice of hours has not), the billing period's own Factur-X fields (BT-73/74)
-and a line unit (`HUR`) in marketplace's Factur-X writer (it writes `H87`).
+invoice of hours has not).
 
 ## Configuration
 
@@ -84,6 +85,14 @@ marketplace:
         seller: { name: 'Glitch Art', siren: '…', vat_number: 'FR…', … }
         payment_days: 30
 ```
+
+## Requirements
+
+omnibase/marketplace with `Invoices::issueFor()` (a03428c), the credit note of an
+invoice without an order (92d9691) and the billing period on the lines
+(2042c64); omnibase/admin with a field's `setTemplatePath()` on the detail page
+(4e689b3). A site updates the three together; with an older marketplace, an
+invoice of hours is refused with a message saying so.
 
 ## Migration
 

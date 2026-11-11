@@ -11,6 +11,7 @@ use Base\Forge\Enum\HourInvoiceStatus;
 use Base\Forge\Invoice\HourInvoiceComposer;
 use Base\Forge\Service\HourInvoices;
 use Base\Marketplace\Entity\Invoice;
+use Base\Marketplace\Invoice\FacturX;
 use Base\Marketplace\Pricing\ReverseCharge;
 use Base\Marketplace\Security\InvoiceVoter;
 use Base\Marketplace\Service\Invoices;
@@ -92,7 +93,22 @@ class HourInvoicesTest extends ForgeWebTestCase
         self::assertSame('2026-10-31', $invoice->getSoldAt()?->format('Y-m-d'), 'the services completed at the period\'s end');
         self::assertSame('2026-12-02', $invoice->getDueAt()?->format('Y-m-d'), 'marketplace.invoice.payment_days');
         self::assertContains('Nature des opérations : prestations de services.', $invoice->getMentions());
-        self::assertContains('Prestations réalisées du 01/10/2026 au 31/10/2026.', $invoice->getMentions());
+        // The month on its lines: the invoice's billing period (BT-73/74), printed as such, its date the services' completion.
+        self::assertSame(['start' => '2026-10-01', 'end' => '2026-10-31'], $line['period']);
+        self::assertSame(['2026-10-01', '2026-10-31'], array_map(fn (\DateTimeImmutable $date) => $date->format('Y-m-d'), array_values($invoice->getBillingPeriod() ?? [])));
+        self::assertTrue($invoice->isServices());
+        $html = static::getContainer()->get(Invoices::class)->html($invoice);
+        self::assertStringContainsString('Période de facturation : du 01/10/2026 au 31/10/2026', $html);
+        self::assertStringContainsString('Date de réalisation des prestations : 31/10/2026', $html);
+        if (FacturX::available()) {
+            $xml = new \DOMDocument();
+            $xml->loadXML(static::getContainer()->get(Invoices::class)->xml($invoice));
+            $xpath = new \DOMXPath($xml);
+            $xpath->registerNamespace('ram', 'urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100');
+            $xpath->registerNamespace('udt', 'urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100');
+            $period = '//ram:ApplicableHeaderTradeSettlement/ram:BillingSpecifiedPeriod';
+            self::assertSame(['20261001', '20261031'], [$xpath->evaluate("string($period/ram:StartDateTime/udt:DateTimeString)"), $xpath->evaluate("string($period/ram:EndDateTime/udt:DateTimeString)")], 'BT-73, BT-74');
+        }
         self::assertSame(['1', '1'], [$entries[0]->getInvoiceLine(), $entries[1]->getInvoiceLine()], 'each hour knows the line that billed it');
 
         // The Partner reads it on marketplace's page; nobody else does.
@@ -114,7 +130,8 @@ class HourInvoicesTest extends ForgeWebTestCase
         self::assertTrue($invoice->isCancelled());
         self::assertSame(HourInvoiceStatus::CANCELLED, $draft->getStatus());
         self::assertSame($creditNote, $draft->getCreditNote());
-        self::assertSame(sprintf('Avoir annulant la facture %s du 02/11/2026. Taux horaire erroné.', $invoice->getNumber()), $creditNote->getMentions()[0]);
+        // marketplace names the invoice it cancels, then the reason as typed, then the nature of the operations.
+        self::assertSame([sprintf('Avoir annulant la facture %s du 02/11/2026.', $invoice->getNumber()), 'Taux horaire erroné.', 'Nature des opérations : prestations de services.'], \array_slice($creditNote->getMentions(), 0, 3));
         $this->em->clear();
         $first = $this->em->find(TimeEntry::class, $entries[0]->getId());
         self::assertNull($first->getHourInvoice(), 'released, as stored');
@@ -150,6 +167,29 @@ class HourInvoicesTest extends ForgeWebTestCase
         self::assertNull($entries[0]->getHourInvoice());
         self::assertNull($entries[1]->getInvoiceLine());
         self::assertInstanceOf(Invoice::class, $draft->getCreditNote());
+    }
+
+    public function testTheBackOfficeShowsTheLinesAndTheHoursEachBills(): void
+    {
+        [$client, , $entries] = $this->partner();
+        $draft = $this->hourInvoices()->draft(new HourInvoice($client, new \DateTimeImmutable('2026-10-01'), new \DateTimeImmutable('2026-10-31')));
+        $this->signIn($this->user('admin', ['ROLE_ADMIN', 'ROLE_SUPERADMIN']));
+        $this->em->flush();
+
+        // A draft: its lines as they would be issued (the field's own template, setTemplatePath()), its hours under them.
+        $page = $this->request('GET', '/admin/hour-invoices/'.$draft->getId());
+        self::assertSame(200, $page->getStatusCode(), substr(strip_tags((string) $page->getContent()), 0, 1500));
+        $dom = $this->xpath($page);
+        self::assertSame(1, $dom->query('//table[contains(@class, "forge-hour-invoice-lines")]/tbody/tr')->length, 'a line per project');
+        self::assertSame(2, $dom->query('//ul[contains(@class, "forge-hour-invoice-entries")]/li')->length, 'the two hours it bills');
+        self::assertStringContainsString('Mise en place', $dom->evaluate('string(//ul[contains(@class, "forge-hour-invoice-entries")])'));
+        self::assertStringContainsString('243,00 €', $dom->evaluate('string(//table[contains(@class, "forge-hour-invoice-lines")]/tfoot)'));
+
+        // Issued: the invoice's frozen lines, the same hours.
+        $this->hourInvoices()->issue($draft, new \DateTimeImmutable('2026-11-02 10:00'));
+        $dom = $this->xpath($this->request('GET', '/admin/hour-invoices/'.$draft->getId()));
+        self::assertSame(2, $dom->query('//ul[contains(@class, "forge-hour-invoice-entries")]/li')->length);
+        self::assertStringContainsString('Nature des opérations : prestations de services.', $dom->evaluate('string(//ul[contains(@class, "forge-hour-invoice-mentions")])'));
     }
 
     public function testAnIssuedInvoiceKeepsItsHours(): void
