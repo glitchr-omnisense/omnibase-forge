@@ -205,6 +205,8 @@ pipeline:
   all: "Tous les pipelines"
   others: "Les précédents du projet"
   none: "Aucun pipeline enregistré pour l'instant."
+  sync: "Relire les exécutions"
+  synced: "{runs, plural, =0 {Aucune exécution lue} one {# exécution lue} other {# exécutions lues}}{failed, plural, =0 {.} one {, un projet sans réponse de son hôte.} other {, # projets sans réponse de leur hôte.}}"
   open: "Voir là où il a tourné"
   graph: "Le pipeline de {ref}, tâche par tâche"
   stage: "Étape"

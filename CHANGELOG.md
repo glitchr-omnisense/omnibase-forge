@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+- The pipelines are read from the host of a project's repository: `Service\PipelineSync` records a project's latest
+  runs - a run seen before brought up to date, its jobs no longer run taken out -, `forge:pipelines:sync
+  [projects...] [--limit=10]` runs it (cron), and a button on the back office's pipelines page
+  (`forge_admin_pipelines_sync`, POST). The hosts are sources, `Pipeline\PipelineSourceInterface` (tag
+  `forge.pipeline_source`, value objects `Model\PipelineRun` / `PipelineRunJob`); `Pipeline\GithubActionsSource` reads
+  GitHub Actions through its REST API, the stages and edges from the workflow file's `needs` (`GITHUB_TOKEN` for a
+  private repository; `symfony/http-client` and `symfony/yaml` suggested, the source idle without the client).
+  `Pipeline::$name` (column `forge_pipeline.name`, nullable: **a site with the pipelines' tables adds it by a
+  migration**), shown on the lists. `ProjectRepository::findWithRepositoryUrl()`, `Pipeline::keep()`, `Stage::keep()`.
+  docs/pipelines.md, docs/reference.md; tests/Pipeline/GithubActionsSourceTest (MockHttpClient), tests/Service/PipelineSyncTest.
+
 ### Changed
 - `QuoteCrudController` numbers a new quote in `persistRecord()`, omnibase/admin's write hook on the persistence the site
   chose, in place of the former `persistEntity(EntityManagerInterface)` (deprecated since the admin's step B1a); its

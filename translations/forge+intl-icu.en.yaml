@@ -205,6 +205,8 @@ pipeline:
   all: "Every pipeline"
   others: "The project's earlier ones"
   none: "No pipeline recorded yet."
+  sync: "Read the runs again"
+  synced: "{runs, plural, =0 {No run read} one {# run read} other {# runs read}}{failed, plural, =0 {.} one {, one project whose host did not answer.} other {, # projects whose host did not answer.}}"
   open: "See where it ran"
   graph: "The pipeline of {ref}, job by job"
   stage: "Stage"

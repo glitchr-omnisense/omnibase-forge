@@ -26,6 +26,10 @@ class Pipeline implements \Stringable
     #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
     private ?Project $project = null;
 
+    /** What it is called where it ran: a GitHub workflow's name ("CI", "Docs"); null when there is one kind of run. */
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $name = null;
+
     /** The branch or the tag it ran for. */
     #[ORM\Column(name: 'git_ref', length: 255, nullable: true)]
     private ?string $ref = null;
@@ -70,13 +74,16 @@ class Pipeline implements \Stringable
 
     public function __toString(): string
     {
-        return sprintf('#%s %s', $this->externalId ?? $this->id ?? '?', $this->ref ?? substr((string) $this->commitSha, 0, 8));
+        return ltrim(sprintf('%s #%s %s', $this->name, $this->externalId ?? $this->id ?? '?', $this->ref ?? substr((string) $this->commitSha, 0, 8)));
     }
 
     public function getId(): ?int { return $this->id; }
 
     public function getProject(): ?Project { return $this->project; }
     public function setProject(?Project $project): self { $this->project = $project; return $this; }
+
+    public function getName(): ?string { return $this->name; }
+    public function setName(?string $name): self { $this->name = $name ?: null; return $this; }
 
     public function getRef(): ?string { return $this->ref; }
     public function setRef(?string $ref): self { $this->ref = $ref ?: null; return $this; }
@@ -134,6 +141,29 @@ class Pipeline implements \Stringable
         $this->stages->add($stage);
 
         return $stage;
+    }
+
+    /**
+     * Keeps only the stages named, and in each the jobs named: what is left of a run brought up to
+     * date by its source (a job no longer run is no longer shown).
+     *
+     * @param array<string, list<string>> $jobs stage name -> its job names
+     */
+    public function keep(array $jobs): self
+    {
+        foreach ($this->stages->toArray() as $stage) {
+            if (!isset($jobs[$stage->getName()])) {
+                $this->stages->removeElement($stage);
+                continue;
+            }
+            $stage->keep($jobs[$stage->getName()]);
+        }
+        $position = 0;
+        foreach ($this->stages as $stage) {
+            $stage->setPosition($position++);
+        }
+
+        return $this;
     }
 
     /** @return list<Job> every job, stage after stage */

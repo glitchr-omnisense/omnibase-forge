@@ -44,11 +44,13 @@ order: 45
 | `forge_admin_order_paid` | `/admin/forge/order/{reference}/paid` | POST | `ROLE_ADMIN`: a bank transfer received |
 | `forge_admin_order_refund` | `/admin/forge/order/{reference}/refund` | GET, POST | `ROLE_ADMIN`: hours refunded |
 | `forge_admin_pipelines`, `forge_admin_pipeline` | `/admin/forge/pipelines`, `/admin/forge/pipelines/{id}` | GET | `ROLE_ADMIN` ([Pipelines](pipelines.md)) |
+| `forge_admin_pipelines_sync` | `/admin/forge/pipelines/sync` | POST (CSRF `forge_pipelines_sync`) | `ROLE_ADMIN`: the runs read again from the hosts |
 
 ## Commands
 
 | Command | Arguments and options | Does |
 |---|---|---|
+| `forge:pipelines:sync` | `[projects...]` (id or slug), `--limit=10` | reads each project's latest CI runs from the host of its repository (GitHub Actions) and records them ([Pipelines](pipelines.md)) |
 | `forge:release:sync` | `[slugs...]`, `--no-fetch`, `--no-build` | fetches the repositories, turns new version tags into releases and builds their zip |
 | `forge:artifact:attach` | `slug version platform file`, `--publish`, `--changelog` | attaches a platform build (webgl, windows, macos, linux, android) to a release, made if missing |
 | `forge:license:expire` | | marks the licences past their expiry as expired |

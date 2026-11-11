@@ -32,6 +32,15 @@ class ProjectRepository extends ServiceEntityRepository
             ->getQuery()->getResult();
     }
 
+    /** @return list<Project> the projects whose repository lives somewhere: where their runs are read (Service\PipelineSync) */
+    public function findWithRepositoryUrl(): array
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.repositoryUrl IS NOT NULL')
+            ->orderBy('p.id', 'ASC')
+            ->getQuery()->getResult();
+    }
+
     public function findOneByRepository(string $repository): ?Project
     {
         return $this->findOneBy(['gitRepository' => $repository]);

@@ -9,6 +9,12 @@
         <h1>{{ '@forge.pipeline.title'|trans }}</h1>
         <div class="admin-header-subtitle">{{ '@forge.pipeline.lead'|trans }}</div>
     </div>
+    <div class="admin-header-actions">
+        <form method="post" action="{{ path('forge_admin_pipelines_sync') }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('forge_pipelines_sync') }}">
+            <button class="btn btn-secondary" type="submit"><i class="fa-solid fa-rotate"></i> {{ '@forge.pipeline.sync'|trans }}</button>
+        </form>
+    </div>
 </div>
 {% endblock %}
 
@@ -20,6 +26,7 @@
         <header>
             <strong class="forge-pipeline-status">{{ ('@forge.pipeline.status.' ~ pipeline.status.value)|trans }}</strong>
             <a href="{{ path('forge_admin_pipeline', {id: pipeline.id}) }}">{{ pipeline.project ? pipeline.project.name : '—' }}</a>
+            {% if pipeline.name %}<span class="forge-pipeline-name">{{ pipeline.name }}</span>{% endif %}
             {% if pipeline.ref %}<span>{{ pipeline.ref }}</span>{% endif %}
             {% if pipeline.shortSha %}<code>{{ pipeline.shortSha }}</code>{% endif %}
             <time datetime="{{ pipeline.createdAt|date('c') }}">{{ pipeline.createdAt|format_datetime('medium', 'short') }}</time>

@@ -30,7 +30,26 @@ $entityManager->flush();
 
 A status (`Base\Forge\Enum\PipelineStatus`: pending, running, success, warning, failed, canceled, skipped, manual) is set on jobs only. A stage is what its jobs say and a pipeline what its stages say - failed as soon as one failed, running while one runs, waiting on a manual step - unless the pipeline's own status was set by hand (`setStatus()`). A job allowed to fail that failed counts as a warning.
 
-The bundle has no listener for a CI's webhooks yet: what records the runs (a webhook's controller, a command the CI calls) is the application's for now.
+A run may carry a name (`setName()`): what it is called where it ran, a GitHub workflow's name ("CI", "Docs").
+
+## Reading the runs from the host
+
+`Service\PipelineSync` reads a project's latest runs where its repository lives and records them as above: a run seen before (the same source and id) is brought up to date - its jobs moved on, the ones no longer run taken out -, a new one is added.
+
+```sh
+bin/console forge:pipelines:sync                 # every project with a repositoryUrl
+bin/console forge:pipelines:sync 12 --limit=20   # one project, its 20 latest runs
+```
+
+Run it from cron every few minutes. The back office's pipelines page has a button that does the same now (`forge_admin_pipelines_sync`).
+
+A host is read by a source, `Base\Forge\Pipeline\PipelineSourceInterface` (`supports(Project)`, `runs(Project, limit)`: value objects, `Model\PipelineRun` and `Model\PipelineRunJob`, no entity), autoconfigured with the tag `forge.pipeline_source`. One ships:
+
+- **`GithubActionsSource`**, for a `repositoryUrl` on github.com (`https://github.com/o/n`, `git@github.com:o/n.git`, `ssh://git@github.com/o/n.git`): GitHub's REST API, the latest workflow runs, the jobs of each, and the workflow file at the run's commit, whose `needs` give the stages - a job one rank past the farthest job it needs, a matrix's jobs (`Tests (8.4)`) in their job's stage, each stage named after the jobs of the file it holds - and the edges of the graph. Without the file (no `symfony/yaml`, a file GitHub does not give), a run is one stage named after its workflow. GitHub's statuses: queued and pending → pending, in progress → running, waiting → manual; then success, failure / timed out → failed, cancelled → canceled (said by the run itself), skipped, neutral → warning. A public repository answers without a token, 60 calls an hour; a private one, and more calls, need `GITHUB_TOKEN` in the environment (a token that reads Actions). Each run costs two calls; a workflow file is read once per commit. Needs `symfony/http-client`: without it the source supports nothing, and nothing else changes.
+
+Why a source in the bundle and not a family `omniXXX` (plan 0, rule 2: a family aggregates an API with at least two real providers): the studio's repositories are all on GitHub today (GitLab was left, gitbud has no CI). When a second host's CI is used - GitLab CI, Forgejo Actions, a CI of gitbud's - it is one more class here, and the sources move out to a family then.
+
+A CI's webhooks are not listened to yet: the command (cron) brings the runs up to date.
 
 ## Seeing it
 
@@ -59,4 +78,4 @@ graph.setState('job-31', 'success');
 
 ## Tables
 
-`forge_pipeline`, `forge_pipeline_stage`, `forge_pipeline_job`: an application that updates the bundle writes their migration (`doctrine:migrations:diff`).
+`forge_pipeline`, `forge_pipeline_stage`, `forge_pipeline_job`: an application that updates the bundle writes their migration (`doctrine:migrations:diff`). Since 2026-11-11 `forge_pipeline` has a `name` column (nullable): a site that had the tables adds it the same way.

@@ -55,7 +55,9 @@
         "symfony/twig-bundle": "^6.0|^7.0|^8.0"
     },
     "suggest": {
-        "ext-git2": "Required by git/git-bundle to read repositories (releases, the project dashboard's history)"
+        "ext-git2": "Required by git/git-bundle to read repositories (releases, the project dashboard's history)",
+        "symfony/http-client": "Reads the pipelines' runs from GitHub Actions (Pipeline\\GithubActionsSource)",
+        "symfony/yaml": "The stages of a GitHub Actions run, from its workflow file's needs"
     },
     "scripts": {
         "test": "phpunit"

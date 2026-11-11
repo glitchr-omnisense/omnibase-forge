@@ -24,7 +24,7 @@ docker run --rm --network none \
 On this checkout, in the harness:
 
 ```text
-OK (48 tests, 460 assertions)
+OK (54 tests, 513 assertions)
 ```
 
 ## What the tests cover
@@ -35,4 +35,5 @@ OK (48 tests, 460 assertions)
 | `Entity` | licences, projects, quotes |
 | `Enum` | `PipelineStatusTest` |
 | `Model` | `CardMoveTest`: a card's move as the board sends it |
-| `Service` | the board, the hours ledger, licence keys, the pipeline graph, the Unity tarballs |
+| `Pipeline` | `GithubActionsSourceTest`: GitHub Actions through a `MockHttpClient` - the repository's address, the statuses, a run's stages and edges from its workflow file's `needs`, a run without its file, a host that refuses |
+| `Service` | the board, the hours ledger, licence keys, the pipeline graph, a run recorded then brought up to date (`PipelineSyncTest`), the Unity tarballs |

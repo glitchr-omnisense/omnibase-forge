@@ -37,6 +37,14 @@ class PipelineControllerTest extends ForgeWebTestCase
         self::assertSame(200, $list->getStatusCode());
         self::assertSame(1, $this->xpath($list)->query($graph)->length, 'the latest runs, each with its graph');
 
+        // The runs read again from the hosts, on demand: a form with its token; none of these projects is on a host a source reads.
+        $token = $this->xpath($list)->evaluate('string(//form[contains(@action, "/admin/forge/pipelines/sync")]//input[@name="_token"]/@value)');
+        self::assertNotSame('', $token, 'the button to read them again');
+        self::assertSame(403, $this->request('POST', '/admin/forge/pipelines/sync', [], null, ['_token' => 'wrong'])->getStatusCode());
+        $synced = $this->request('POST', '/admin/forge/pipelines/sync', [], null, ['_token' => $token]);
+        self::assertSame(302, $synced->getStatusCode());
+        self::assertStringEndsWith('/admin/forge/pipelines', (string) $synced->headers->get('Location'));
+
         // Not the back office's: a client is turned away.
         $this->signIn($client);
         self::assertContains($this->request('GET', '/admin/forge/pipelines')->getStatusCode(), [302, 403, 404]);

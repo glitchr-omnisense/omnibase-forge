@@ -68,6 +68,18 @@ class Stage implements \Stringable
         return $job;
     }
 
+    /** @param list<string> $names the jobs to keep; the others are removed */
+    public function keep(array $names): self
+    {
+        foreach ($this->jobs->toArray() as $job) {
+            if (!\in_array($job->getName(), $names, true)) {
+                $this->jobs->removeElement($job);
+            }
+        }
+
+        return $this;
+    }
+
     /** What its jobs say; one that failed and was allowed to is a warning. */
     public function getStatus(): PipelineStatus
     {
