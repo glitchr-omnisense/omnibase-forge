@@ -1,0 +1,49 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Access to constant SENT on an unknown class Base\\Forge\\Enum\\QuoteStatus\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Controller/Admin/ActionController.php
+
+		-
+			message: '#^Access to constant DRAFT on an unknown class Base\\Forge\\Enum\\QuoteStatus\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Controller/Admin/Crud/QuoteCrudController.php
+
+		-
+			message: '#^Access to constant REQUESTED on an unknown class Base\\Forge\\Enum\\QuoteStatus\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Controller/Admin/Crud/QuoteCrudController.php
+
+		-
+			message: '#^Access to constant SENT on an unknown class Base\\Forge\\Enum\\QuoteStatus\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Controller/Admin/Crud/QuoteCrudController.php
+
+		-
+			message: '#^Class Base\\Forge\\Enum\\QuoteStatus not found\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Controller/Admin/Crud/QuoteCrudController.php
+
+		-
+			message: '#^Access to constant DRAFT on an unknown class Base\\Forge\\Enum\\QuoteStatus\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Controller/Client/ShopController.php
+
+		-
+			message: '#^Access to constant REQUESTED on an unknown class Base\\Forge\\Enum\\QuoteStatus\.$#'
+			identifier: class.notFound
+			count: 2
+			path: src/Controller/Client/ShopController.php
+
+		-
+			message: '#^Access to constant PAID on an unknown class Base\\Forge\\Enum\\QuoteStatus\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/EventSubscriber/OrderPaidSubscriber.php

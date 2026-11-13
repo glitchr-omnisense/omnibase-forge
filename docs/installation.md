@@ -7,7 +7,7 @@ order: 10
 
 ## Requirements
 
-- PHP 8.2 or later, `ext-zip`;
+- PHP 8.4 (omnisense/omnibase 5.1 asks it), `ext-zip`;
 - doctrine/orm 2.15 or 3;
 - omnisense/omnibase 5.1 or later, omnibridge/symfony 1.1 or later,
   omnibase/admin 1, omnibase/marketplace 1;
@@ -24,12 +24,16 @@ order: 10
 ## The bundle
 
 ```bash
-composer require omnibase/forge:dev-main
+composer require omnibase/forge
 ```
 
 ```php
-// config/bundles.php
+// config/bundles.php: the core's bundle first, then the ones the forge stands on
+Omnibridge\Symfony\Omnibase\BaseBundle::class => ['all' => true],
+Base\Admin\AdminBundle::class => ['all' => true],
 Omnistate\Bridge\Symfony\OmnistateBundle::class => ['all' => true],
+Base\Marketplace\MarketplaceBundle::class => ['all' => true],
+Git\GitBundle::class => ['all' => true],
 Base\Forge\ForgeBundle::class => ['all' => true],
 ```
 

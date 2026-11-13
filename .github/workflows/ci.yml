@@ -1,0 +1,25 @@
+# The bundle's CI: glitchr-studio/ci's reusable workflow, pinned - the PHP 8.4 image, the bundle installed
+# alone as its own root package at the default stability (dependencies resolved afresh, as a site gets
+# them), composer validate, PHPUnit (the tests that need a Symfony application skip here: they run in
+# omnisense/omnibase's harness, docker/ there), PHPStan against phpstan-baseline.neon (new violations
+# fail), then the bundle installed into an empty project without its require-dev and with no Composer
+# plugin allowed, its bundle class autoloaded there.
+name: ci
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+  workflow_dispatch:
+  # release.yml runs this CI on a tag before the release.
+  workflow_call:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  package:
+    uses: glitchr-studio/ci/.github/workflows/php-package.yml@133c7eda3cd536a2e3478474ead380257375589e # main, 2026-11-09
+    with:
+      smoke-class: 'Base\Forge\ForgeBundle'

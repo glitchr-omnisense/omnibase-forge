@@ -1,0 +1,12 @@
+# PHPStan as the CI's package job runs it (glitchr-studio/ci, php-package.yml): what phpstan-baseline.neon
+# lists is known, anything new fails. Level 0 for a start: classes, functions and methods that exist, their
+# arguments counted.
+includes:
+    - phpstan-baseline.neon
+
+parameters:
+    level: 0
+    paths:
+        - src
+    # The CI's PHPStan may be a newer one than the baseline's: an entry it no longer reports is not an error.
+    reportUnmatchedIgnoredErrors: false

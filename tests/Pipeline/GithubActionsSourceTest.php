@@ -6,6 +6,8 @@ use Base\Forge\Entity\Project;
 use Base\Forge\Enum\PipelineStatus;
 use Base\Forge\Model\PipelineRunJob;
 use Base\Forge\Pipeline\GithubActionsSource;
+use Omnibridge\Contract\Locales;
+use Omnibridge\Runtime;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -32,10 +34,42 @@ class GithubActionsSourceTest extends TestCase
             steps: [{run: make deploy}]
         YAML;
 
+    /** The Locales this test gave the runtime, taken back after it. */
+    private ?Locales $locales = null;
+
     protected function setUp(): void
     {
         if (!class_exists(MockHttpClient::class)) {
             self::markTestSkipped('Needs symfony/http-client.');
+        }
+        // A project is a translatable thread: its title needs the site's locales. Outside a host application (the
+        // package's own CI) nobody gives them, so the test does - one language.
+        if (null === Runtime::find(Locales::class)) {
+            $this->locales = new class implements Locales {
+                public function getLocale(): string
+                {
+                    return 'en';
+                }
+
+                public function getDefaultLocale(): string
+                {
+                    return 'en';
+                }
+
+                public function getAvailableLocales(): array
+                {
+                    return ['en'];
+                }
+            };
+            Runtime::set(Locales::class, $this->locales);
+        }
+    }
+
+    protected function tearDown(): void
+    {
+        if (null !== $this->locales) {
+            Runtime::set(Locales::class, null);
+            $this->locales = null;
         }
     }
 

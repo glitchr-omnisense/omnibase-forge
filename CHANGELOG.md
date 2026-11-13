@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-13
+
+### Changed
+
+- Installs with the default minimum-stability: stable requirements only (`git/git-bundle` ^1.0 now, beside
+  `omnisense/omnibase` ^5.1, `omnibridge/symfony` ^1.1, `omnisense/omnihub` ^1.0, `omnibase/admin` and
+  `omnibase/marketplace` ^1.0, `omnisense/omnistate` and `omnistate/annuaire-entreprises` ^1.0).
+- `doctrine/doctrine-bundle` and `symfony/doctrine-bridge` required: the repositories extend DoctrineBundle's
+  `ServiceEntityRepository`, the entities use `UniqueEntity`. require-dev: `omnisense/omnitrade` ^1.1.
+- CI: glitchr-studio/ci's package workflow (the bundle installed alone, composer validate, PHPUnit, PHPStan against
+  its baseline, a consumer install without require-dev) and its release workflow.
+- `GithubActionsSourceTest` gives the runtime one locale where no host application does (a project's title is
+  translatable), so it runs in the package's own CI.
+
 ### Added
 - One-click purchases from Forge Store and Forge Hub (plan items 16.2 to 16.4, and 17.3 on the server; docs/hub.md,
   "Buying in one click"), through omnisense/omnitrade 1.1's saved methods and the gateway `forge.hub.payment_gateway`

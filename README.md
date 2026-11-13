@@ -26,22 +26,34 @@ A software forge for [omnisense/omnibase](https://github.com/glitchr-omnisense/o
 
 ## Requirements
 
-- PHP 8.2+, `ext-zip`
-- `omnisense/omnibase` 3.0, 4.0 or 5.0, `omnibase/admin`, `omnibase/marketplace`
+- PHP 8.4 (`omnisense/omnibase` 5.1 asks it), `ext-zip`
+- `omnisense/omnibase` 5.1, `omnibridge/symfony` 1.1, `omnibase/admin` and `omnibase/marketplace` 1.x, `omnisense/omnihub` 1.x
 - `git/git-bundle` 1.0, with the **php-git2** extension ([RogerGee/php-git2](https://github.com/RogerGee/php-git2))
 - `omnisense/omnistate` with `omnistate/annuaire-entreprises`: they turn on omnibase/marketplace's company register, which checks the SIRETs typed in quote requests against the State's free register
 
 ## Installation
 
 ```bash
-composer require omnibase/forge:dev-main
+composer require omnibase/forge
 ```
+
+Composer brings the core, its Symfony host, omnibase/admin, omnibase/marketplace, git/git-bundle, omnihub and omnistate
+with it. `config/bundles.php` registers the core's bundle first (see the core's README for the other bundles a site
+usually adds), then the ones the forge stands on:
 
 ```php
 // config/bundles.php
+Omnibridge\Symfony\Omnibase\BaseBundle::class => ['all' => true],
+Base\Admin\AdminBundle::class => ['all' => true],
 Omnistate\Bridge\Symfony\OmnistateBundle::class => ['all' => true],
+Base\Marketplace\MarketplaceBundle::class => ['all' => true],
+Git\GitBundle::class => ['all' => true],
 Base\Forge\ForgeBundle::class => ['all' => true],
 ```
+
+With the routes below and the schema migrated, `/telechargements` lists the software and its releases and `/composer/packages.json`
+answers Composer. One-click purchases from Forge Store and Forge Hub also need `omnisense/omnitrade:^1.1` and a
+provider that saves payment methods (`omnitrade/stripe:^1.1`).
 
 ```yaml
 # config/routes.yaml
