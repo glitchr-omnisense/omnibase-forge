@@ -2,7 +2,23 @@
 
 ## [Unreleased]
 
+### Added
+- The hub manifest (`/upm/-/hub.json`) publishes the licensing key (plan item 17.1): `licensing` with `algorithm`,
+  `publicKey`, `registry` and, after a rotation, `previousKey`, `rotation` (the previous key's Ed25519 signature of
+  `"forge-key-rotation:v1:" + publicKey`, as Forge Store checks it) and `previousKeyValidUntil`. A rotation is
+  published only when it verifies against the key in use. `/api/licenses/public-key` gives the same, in its own
+  names. `HubCatalog::licensing()`, `LicenseToken::rotation()`, `successor()`, `rotationVerifies()`, `fingerprint()`,
+  `UpmRegistry::url()`.
+- `bin/console forge:license:rotate [--local] [--compromised]`: a new signing key, signed over by the current one,
+  sealed in the secrets vault with what the manifest publishes of the change (`FORGE_LICENSE_PREVIOUS_KEY`,
+  `FORGE_LICENSE_ROTATION`, `FORGE_LICENSE_PREVIOUS_UNTIL`); `Service\LicenseKeyVault`. docs/licensing.md.
+
 ### Changed
+- A licence token is bound to its registry and its package (plan item 17.2): the payload's format is 2 and carries
+  `registry` (the Unity registry's address, the manifest's `licensing.registry`) and `package` (the UPM name, null
+  for a game or an application). Forge Seal reads it unchanged (its JsonUtility ignores the new fields).
+- `forge:license:keypair` seals the secret key in the secrets vault (`--local`: `.env.<env>.local`) instead of
+  printing it, and refuses once a key is set (`forge:license:rotate` replaces it).
 - The invoices of hours are issued through omnibase/marketplace's `Invoices::issueFor()` (and previewed by
   `compose()`): `Invoice\HourInvoiceComposer::source()` gives a `Model\InvoiceSource` - the buyer from
   `InvoiceComposer::buyerOf()`, the lines, the totals, the VAT of a service - and marketplace writes the seller, the

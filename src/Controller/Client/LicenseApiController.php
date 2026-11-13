@@ -60,15 +60,26 @@ class LicenseApiController extends AbstractController
         return $this->json(['status' => $released ? 'released' : 'not_activated'], 200, ['Cache-Control' => 'no-store']);
     }
 
-    /** The key to check the tokens with - to ship in the software, or to fetch once. */
+    /**
+     * The key to check the tokens with - to ship in the software, or to fetch once -, and after a
+     * rotation the previous one, its signature of the current one and the end of its tokens.
+     */
     #[Route('/public-key', name: 'forge_api_license_public_key', methods: ['GET'])]
     public function publicKey(LicenseToken $tokens): JsonResponse
     {
         $key = $tokens->publicKey();
+        if (!$key) {
+            return $this->json(['error' => LicenseActivationException::NOT_CONFIGURED], 503);
+        }
+        $rotation = $tokens->rotation();
 
-        return $key
-            ? $this->json(['algorithm' => 'Ed25519', 'public_key' => $key])
-            : $this->json(['error' => LicenseActivationException::NOT_CONFIGURED], 503);
+        return $this->json(array_filter([
+            'algorithm' => 'Ed25519',
+            'public_key' => $key,
+            'previous_key' => $rotation['previousKey'] ?? null,
+            'rotation' => $rotation['rotation'] ?? null,
+            'previous_key_valid_until' => $rotation['previousKeyValidUntil'] ?? null,
+        ], fn ($value) => null !== $value));
     }
 
     private function refusal(LicenseActivationException $e): JsonResponse

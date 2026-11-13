@@ -37,6 +37,14 @@ be bought.
     "list": "https://glitchr.io/upm/-/hub/licenses",
     "activate": "https://glitchr.io/api/licenses/activate",
     "release": "https://glitchr.io/api/licenses/release"
+  },
+  "licensing": {
+    "algorithm": "Ed25519",
+    "publicKey": "<base64, 32 bytes>",
+    "registry": "https://glitchr.io/upm",
+    "previousKey": "<base64>",
+    "rotation": "<base64, 64 bytes>",
+    "previousKeyValidUntil": 1795564800
   }
 }
 ```
@@ -48,6 +56,22 @@ be bought.
 - `checkout`: present when the hub sells. A client shows "Buy" only for a
   source whose manifest has it - a static hub (a copied template on GitHub
   Pages) never does.
+- `licensing`: present once the forge has a signing key
+  (`bin/console forge:license:keypair`). Data only, never code:
+  - `publicKey`: the Ed25519 key the licence tokens are signed with. Forge
+    Store pins it when the store is added (trust on first use) and checks
+    licences against the pinned key, not against what the manifest serves
+    later; a different key waits for its user's consent.
+  - `registry`: the registry the tokens are bound to - each token's
+    `registry` (see [licensing.md](licensing.md)). A token whose `registry`
+    is another store's never opens this store's packages.
+  - after a rotation (`bin/console forge:license:rotate`): `previousKey`, and
+    `rotation`, the previous key's Ed25519 signature of
+    `"forge-key-rotation:v1:" + publicKey` - a client that pinned
+    `previousKey` moves to `publicKey` without asking; and
+    `previousKeyValidUntil` (UNIX time), past which no token the previous key
+    signed may run. Published only when the signature verifies; only the last
+    rotation is kept, so a client pinned two keys back asks its user.
 
 It is configured in `config/packages/forge.yaml`:
 

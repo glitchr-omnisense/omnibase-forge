@@ -66,6 +66,15 @@ class UpmRegistry
         return $holder ? [$holder, $licenses] : null;
     }
 
+    /**
+     * The registry's address, as Unity's manifest names it (/upm, with no package): the
+     * registry's identity in the hub manifest and in the licence tokens it binds (LicenseToken).
+     */
+    public function url(): string
+    {
+        return rtrim(\dirname($this->urls->generate('forge_upm_package', ['name' => 'x.x'], UrlGeneratorInterface::ABSOLUTE_URL)), '/');
+    }
+
     public function find(string $name): ?Software
     {
         return $this->software->findOneBy(['upmName' => $name]);

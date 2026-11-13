@@ -68,6 +68,8 @@ uninstall, a "deactivate" menu). `{"status": "released"}` or
 
 `{"algorithm": "Ed25519", "public_key": "<base64>"}` - ship it in the
 software rather than fetching it: a key fetched at run time could be swapped.
+After a rotation it also gives `previous_key`, `rotation` and
+`previous_key_valid_until`, as the hub manifest does (see below).
 
 ## The token, checked offline
 
@@ -75,13 +77,30 @@ software rather than fetching it: a key fetched at run time could be swapped.
 token = base64url(payload JSON) + "." + base64url(Ed25519 signature of the payload JSON)
 ```
 
+The payload (format `v` 2):
+
+| Field | |
+|---|---|
+| `v` | 2 (1: before `registry` and `package`) |
+| `license` | the licence's id |
+| `software` | the software's slug |
+| `registry` | the Unity registry's address (`https://<site>/upm`, the hub manifest's `licensing.registry`) |
+| `package` | the Unity package the licence covers (its UPM name), or null for a game or an application |
+| `email` | the seat's e-mail |
+| `machine` | SHA-256 (hex) of the machine identifier |
+| `issued_at`, `valid_until` | UNIX time |
+| `license_expires`, `updates_until` | UNIX time, or null |
+
 The software runs when, all of them:
 
 1. the signature verifies with the public key it ships with;
 2. `software` is its own slug;
 3. `machine` equals the SHA-256 (hex) of its own machine identifier;
 4. now is before `valid_until` (UNIX time) - past it, activate again, online;
-5. for a version gate: its release date is before `updates_until`, when set.
+5. for a version gate: its release date is before `updates_until`, when set;
+6. for a Unity package installed from a store: `registry` is that store's
+   registry and `package` the package's name - a token another store signed
+   never opens a package of the same name installed from this one.
 
 `valid_until` is `FORGE_LICENSE_GRACE_DAYS` (30 by default) after the last
 activation, never beyond the licence's expiry: a machine offline for longer
@@ -123,10 +142,36 @@ let runs = genuine && payload.software == "switch-for-coder" && payload.machine 
 
 ## The signing key
 
-`bin/console forge:license:keypair` makes a pair. The secret goes in the
-vault (`bin/console secrets:set FORGE_LICENSE_SIGNING_KEY`), the public key
-in the software. A new pair makes every token issued so far unverifiable:
-ship the new public key first.
+The secret key never leaves the secrets vault: the commands seal it there
+themselves and print only public keys.
+
+- `bin/console forge:license:keypair [--local]` makes the first pair: the
+  secret sealed as `FORGE_LICENSE_SIGNING_KEY` in `config/secrets/<env>/`
+  (`--local`: `.env.<env>.local`), the public key printed with its
+  fingerprint. It refuses once a key is set.
+- `bin/console forge:license:rotate [--local] [--compromised]` replaces it.
+  The current key signs `"forge-key-rotation:v1:" + <new public key>`; the
+  vault then holds the new secret, the previous public key
+  (`FORGE_LICENSE_PREVIOUS_KEY`), that signature (`FORGE_LICENSE_ROTATION`)
+  and the end of the previous key's tokens (`FORGE_LICENSE_PREVIOUS_UNTIL`:
+  the grace days from now, since no token it signed runs longer; now with
+  `--compromised`). The new secret is written last.
+
+Both refuse when `FORGE_LICENSE_SIGNING_KEY` is set somewhere that wins over
+the vault they would write (an environment variable; a `.env` file, for the
+vault without `--local`): writing it would change nothing.
+
+Then deploy the vault and clear the cache. The hub manifest publishes the new
+key with the signed rotation, so Forge Store follows without asking its user;
+the next activations are signed with the new key, and the tokens the previous
+key signed keep verifying with `previousKey` until `previousKeyValidUntil`. A
+game that ships only the previous public key cannot check the tokens signed
+after the rotation (its stored token runs until its `valid_until`, the next
+one fails): release it with the new key as soon as the rotation is done.
+
+A leaked key is the case trust on first use cannot cover: whoever holds it
+can sign a rotation of their own. Rotate with `--compromised`, and tell the
+stores' users the new key's fingerprint.
 
 ## Signed download links
 

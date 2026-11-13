@@ -31,13 +31,14 @@ class HubCatalog
         private readonly UrlGeneratorInterface $urls,
         private readonly UrlHelper $urlHelper,
         #[Autowire('%forge.hub%')] private readonly array $hub = [],
+        private readonly ?LicenseToken $tokens = null,
     ) {
     }
 
     /** The hub manifest: version 1. A source without "checkout" offers nothing to buy. */
     public function manifest(): array
     {
-        $registry = $this->registryUrl();
+        $registry = $this->registry->url();
         $scopes = $this->hub['scopes'] ?? [];
         if (!$scopes) {
             foreach ($this->software->findUpmPackages() as $software) {
@@ -71,7 +72,30 @@ class HubCatalog
                 'activate' => $this->urls->generate('forge_api_license_activate', [], UrlGeneratorInterface::ABSOLUTE_URL),
                 'release' => $this->urls->generate('forge_api_license_release', [], UrlGeneratorInterface::ABSOLUTE_URL),
             ] : null,
+            'licensing' => $this->licensing($registry),
         ], fn ($value) => null !== $value);
+    }
+
+    /**
+     * The key this forge signs its licences with, data only (plan item 14), as Forge Store pins
+     * it on first use (item 17.1): its public key, the registry its tokens are bound to (item
+     * 17.2) and, after a rotation, the previous key with its signature of the current one. Null
+     * while no signing key is set.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function licensing(?string $registry = null): ?array
+    {
+        $key = $this->tokens?->publicKey();
+        if (null === $key) {
+            return null;
+        }
+
+        return array_filter([
+            'algorithm' => 'Ed25519',
+            'publicKey' => $key,
+            'registry' => $registry ?? $this->registry->url(),
+        ] + ($this->tokens->rotation() ?? []), fn ($value) => null !== $value);
     }
 
     /**
@@ -196,12 +220,6 @@ class HubCatalog
         }
 
         return $offers;
-    }
-
-    private function registryUrl(): string
-    {
-        // /upm/<name> without a name: the registry's root, as Unity's manifest names it.
-        return rtrim(\dirname($this->urls->generate('forge_upm_package', ['name' => 'x.x'], UrlGeneratorInterface::ABSOLUTE_URL)), '/');
     }
 
     private function absolute(?string $path): ?string
