@@ -12,6 +12,7 @@ use Symfony\Bundle\FrameworkBundle\Secrets\SodiumVault;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
+use Tests\Base\Forge\LicenseEnvironment;
 
 /**
  * The operator's commands: the first key sealed in the vault, then a rotation the current key
@@ -20,17 +21,20 @@ use Symfony\Component\Console\Tester\CommandTester;
  */
 class LicenseRotateCommandTest extends KernelTestCase
 {
+    use LicenseEnvironment;
+
     private string $directory;
 
     protected function setUp(): void
     {
         $this->directory = sys_get_temp_dir().'/forge-vault-'.bin2hex(random_bytes(4));
         mkdir($this->directory);
+        $this->licenseEnvironment();
     }
 
     protected function tearDown(): void
     {
-        unset($_ENV[LicenseKeyVault::SIGNING_KEY], $_SERVER[LicenseKeyVault::SIGNING_KEY]);
+        $this->restoreLicenseEnvironment();
         (new \Symfony\Component\Filesystem\Filesystem())->remove($this->directory);
         parent::tearDown();
     }
@@ -99,7 +103,7 @@ class LicenseRotateCommandTest extends KernelTestCase
         $pair = LicenseToken::keypair();
 
         // Set as an environment variable: the vault would change nothing, so nothing is written.
-        $_ENV[LicenseKeyVault::SIGNING_KEY] = $pair['secret'];
+        $this->licenseEnvironment([LicenseKeyVault::SIGNING_KEY => $pair['secret']]);
         $rotate = new CommandTester(new LicenseRotateCommand(new LicenseToken($pair['secret']), $this->vault()));
         self::assertSame(Command::FAILURE, $rotate->execute([]));
         self::assertStringContainsString('environment variable', $rotate->getDisplay());
@@ -129,7 +133,7 @@ class LicenseRotateCommandTest extends KernelTestCase
         $this->assertNoSecretIn($local->getDisplay(), $pair['secret']);
 
         // No key at all: nothing to rotate.
-        unset($_ENV[LicenseKeyVault::SIGNING_KEY]);
+        $this->licenseEnvironment();
         $none = new CommandTester(new LicenseRotateCommand(new LicenseToken(), $this->vault()));
         self::assertSame(Command::FAILURE, $none->execute([]));
         self::assertStringContainsString('forge:license:keypair', $none->getDisplay());

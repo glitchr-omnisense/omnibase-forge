@@ -9,6 +9,7 @@ use Base\Forge\Service\LicenseIssuer;
 use Base\Forge\Service\LicenseToken;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\Base\Forge\ForgeWebTestCase;
+use Tests\Base\Forge\LicenseEnvironment;
 
 /**
  * The licensing key as a client meets it (plan item 17): the hub manifest publishes the forge's
@@ -18,13 +19,11 @@ use Tests\Base\Forge\ForgeWebTestCase;
  */
 class HubLicensingTest extends ForgeWebTestCase
 {
-    private const VARIABLES = ['FORGE_LICENSE_SIGNING_KEY', 'FORGE_LICENSE_PREVIOUS_KEY', 'FORGE_LICENSE_ROTATION', 'FORGE_LICENSE_PREVIOUS_UNTIL'];
+    use LicenseEnvironment;
 
     protected function tearDown(): void
     {
-        foreach (self::VARIABLES as $name) {
-            unset($_ENV[$name], $_SERVER[$name]);
-        }
+        $this->restoreLicenseEnvironment();
         parent::tearDown();
     }
 
@@ -105,12 +104,7 @@ class HubLicensingTest extends ForgeWebTestCase
     /** The forge's key material, as the vault would hand it over, in a kernel booted anew. */
     private function keys(array $values): void
     {
-        foreach (self::VARIABLES as $name) {
-            unset($_ENV[$name], $_SERVER[$name]);
-            if (isset($values[$name])) {
-                $_ENV[$name] = $_SERVER[$name] = $values[$name];
-            }
-        }
+        $this->licenseEnvironment($values);
         self::ensureKernelShutdown();
         self::bootKernel();
         $this->em = static::getContainer()->get(\Doctrine\ORM\EntityManagerInterface::class);
