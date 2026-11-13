@@ -9,12 +9,12 @@ order: 10
 
 - PHP 8.2 or later, `ext-zip`;
 - doctrine/orm 2.15 or 3;
-- omnisense/omnibase 3.0, 4.0 or 5.0, omnibridge/symfony 1.x, omnibase/admin,
-  omnibase/marketplace;
+- omnisense/omnibase 5.1 or later, omnibridge/symfony 1.1 or later,
+  omnibase/admin 1, omnibase/marketplace 1;
 - git/git-bundle 1.x, with the php-git2 extension (`ext-git2`), to read the
   repositories (releases, the project's history);
-- omnisense/omnihub 1.x: the Unity registry's documents and tarballs (the
-  same code a static hub publishes with);
+- omnisense/omnihub 1.0 or later: the Unity registry's documents, the hub
+  manifest and the tarballs (the same code a static hub publishes with);
 - omnisense/omnistate with omnistate/annuaire-entreprises: they turn on the
   marketplace's company register, which checks the SIRET numbers typed in
   quote requests;

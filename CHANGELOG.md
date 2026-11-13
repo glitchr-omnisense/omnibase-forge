@@ -38,15 +38,19 @@
   `FORGE_LICENSE_ROTATION`, `FORGE_LICENSE_PREVIOUS_UNTIL`); `Service\LicenseKeyVault`. docs/licensing.md.
 
 ### Changed
+- Stable requirements, no dev stability: omnisense/omnibase `^5.1`, omnibridge/symfony `^1.1`, omnibase/admin and
+  omnibase/marketplace `^1.0`, omnisense/omnistate and omnistate/annuaire-entreprises `^1.0`; `dev-main` is aliased
+  `1.x-dev`. git/git-bundle stays `1.x-dev` until it is tagged.
 - `forge.hub.color` is checked when the configuration is read: `#rrggbb` or nothing. Anything else is a
   configuration error at boot, where it was served as is in hub.json (and omnisense/omnihub's `HubManifest`, which
   the manifest moves onto, throws on it). `ForgeConfigurationTest`.
-- **Requires omnisense/omnihub** (`1.x-dev`): the Unity registry's package documents (`/upm/<name>`) and listing
+- **Requires omnisense/omnihub** (`^1.0`): the Unity registry's package documents (`/upm/<name>`) and listing
   (`/upm/-/all`) are written by `Omnihub\Upm\Registry` from `Omnihub\Package`s that `UpmRegistry` builds with the
-  versions the caller may install; the UPM tarball by `Omnihub\Tarball` (`ArtifactBuilder::tar()` delegates to it);
-  the hub manifest's first source by `Omnihub\Source`. Every document is byte for byte what it was (the snapshot
-  test). The search, the rest of the manifest and the catalogue stay the forge's until omnihub takes a publisher, a
-  manifest's `licenses` and the forge's licensing fields. Not the same output only for a malformed package.json
+  versions the caller may install; the search (`/upm/-/v1/search`) by `Registry::search()` with `glitchr` as its
+  publisher; the UPM tarball by `Omnihub\Tarball` (`ArtifactBuilder::tar()` delegates to it); the hub manifest
+  (`/upm/-/hub.json`) by `Omnihub\HubManifest`, which `HubCatalog::manifest()` fills with its sources, checkout,
+  licences and `Omnihub\Licensing` key, the default scopes from `HubManifest::scopesOf()`. Every document is byte for
+  byte what it was (the snapshot test); only the catalogue stays the forge's. Not the same output only for a malformed package.json
   whose `keywords` is not a list: the package document now leaves it out (or re-indexes it).
 - A licence token is bound to its registry and its package (plan item 17.2): the payload's format is 2 and carries
   `registry` (the Unity registry's address, the manifest's `licensing.registry`) and `package` (the UPM name, null

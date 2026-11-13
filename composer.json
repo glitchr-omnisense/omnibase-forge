@@ -36,13 +36,13 @@
         "ext-zip": "*",
         "doctrine/orm": "^2.15|^3.0",
         "git/git-bundle": "1.x-dev",
-        "omnibridge/symfony": "1.x-dev",
-        "omnisense/omnibase": "3.0.*-dev || 4.0.*-dev || 5.0.*-dev",
-        "omnisense/omnihub": "1.x-dev",
-        "omnibase/admin": "dev-main",
-        "omnibase/marketplace": "dev-main",
-        "omnisense/omnistate": "1.x-dev",
-        "omnistate/annuaire-entreprises": "1.x-dev",
+        "omnibridge/symfony": "^1.1",
+        "omnisense/omnibase": "^5.1",
+        "omnisense/omnihub": "^1.0",
+        "omnibase/admin": "^1.0",
+        "omnibase/marketplace": "^1.0",
+        "omnisense/omnistate": "^1.0",
+        "omnistate/annuaire-entreprises": "^1.0",
         "symfony/config": "^6.0|^7.0|^8.0",
         "symfony/dependency-injection": "^6.0|^7.0|^8.0",
         "symfony/form": "^6.0|^7.0|^8.0",
@@ -62,6 +62,11 @@
         "symfony/http-client": "Reads the pipelines' runs from GitHub Actions (Pipeline\\GithubActionsSource)",
         "symfony/yaml": "The stages of a GitHub Actions run, from its workflow file's needs"
     },
+    "extra": {
+        "branch-alias": {
+            "dev-main": "1.x-dev"
+        }
+    },
     "scripts": {
         "test": "phpunit"
     },
@@ -70,7 +75,6 @@
             "*": "dist"
         },
         "sort-packages": true,
-        "minimum-stability": "dev",
         "allow-plugins": {
             "omnibridge/composer": true,
             "php-http/discovery": true

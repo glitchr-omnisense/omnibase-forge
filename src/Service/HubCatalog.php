@@ -8,6 +8,8 @@ use Base\Forge\Entity\Release;
 use Base\Forge\Entity\Software;
 use Base\Forge\Enum\Platform;
 use Base\Forge\Repository\SoftwareRepository;
+use Omnihub\HubManifest;
+use Omnihub\Licensing;
 use Omnihub\Source;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\UrlHelper;
@@ -43,25 +45,21 @@ class HubCatalog
         $registry = $this->registry->url();
         $scopes = $this->hub['scopes'] ?? [];
         if (!$scopes) {
-            foreach ($this->software->findUpmPackages() as $software) {
-                $scopes[] = implode('.', \array_slice(explode('.', (string) $software->getUpmName()), 0, 2));
-            }
-            $scopes = array_values(array_unique($scopes));
+            $scopes = HubManifest::scopesOf(array_map(fn (Software $software) => (string) $software->getUpmName(), $this->software->findUpmPackages()));
         }
         $logo = $this->hub['logo'] ?? null;
 
-        return array_filter([
-            'version' => 1,
-            'name' => $this->hub['name'] ?? 'Forge',
-            'logo' => $logo ? $this->urlHelper->getAbsoluteUrl($logo) : null,
-            'color' => $this->hub['color'] ?? null,
-            // Its own registry, written as omnisense/omnihub writes a source (the rest of the
-            // manifest waits on omnihub's HubManifest taking "licenses" and the forge's licensing).
-            'sources' => [(new Source(Source::UPM, $registry, ($this->hub['name'] ?? 'Forge') ?: null, $scopes, $this->urls->generate('forge_hub_catalog', [], UrlGeneratorInterface::ABSOLUTE_URL)))->toArray()],
-            'games' => $this->urls->generate('forge_hub_catalog', [], UrlGeneratorInterface::ABSOLUTE_URL),
-            // The device flow; and, with a payment gateway set, the one-click purchase (plan item 16):
-            // the price to confirm, the purchase, the saved payment methods (docs/hub.md).
-            'checkout' => ($this->hub['checkout'] ?? true) ? [
+        $catalog = $this->urls->generate('forge_hub_catalog', [], UrlGeneratorInterface::ABSOLUTE_URL);
+        $sells = $this->hub['checkout'] ?? true;
+        $licensing = $this->licensing($registry);
+
+        return (new HubManifest(
+            $this->hub['name'] ?? 'Forge',
+            [new Source(Source::UPM, $registry, ($this->hub['name'] ?? 'Forge') ?: null, $scopes, $catalog)],
+            $logo ? $this->urlHelper->getAbsoluteUrl($logo) : null,
+            $this->hub['color'] ?? null,
+            $catalog,
+            $sells ? [
                 'device' => $this->urls->generate('forge_hub_device', [], UrlGeneratorInterface::ABSOLUTE_URL),
                 'token' => $this->urls->generate('forge_hub_token', [], UrlGeneratorInterface::ABSOLUTE_URL),
             ] + ($this->payments?->isEnabled() ? [
@@ -69,15 +67,13 @@ class HubCatalog
                 'purchases' => $this->urls->generate('forge_hub_purchase', [], UrlGeneratorInterface::ABSOLUTE_URL),
                 'methods' => $this->urls->generate('forge_hub_payment_methods', [], UrlGeneratorInterface::ABSOLUTE_URL),
             ] : []) : null,
-            // The key's licences and their machines (licenses), and the licence API a machine
-            // activates and releases itself through (docs/licensing.md).
-            'licenses' => ($this->hub['checkout'] ?? true) ? [
+            licensing: $licensing ? new Licensing($licensing['publicKey'], $licensing['previousKey'] ?? null, $licensing['rotation'] ?? null, $licensing['registry'] ?? null, $licensing['previousKeyValidUntil'] ?? null) : null,
+            licenses: $sells ? [
                 'list' => $this->urls->generate('forge_hub_licenses', [], UrlGeneratorInterface::ABSOLUTE_URL),
                 'activate' => $this->urls->generate('forge_api_license_activate', [], UrlGeneratorInterface::ABSOLUTE_URL),
                 'release' => $this->urls->generate('forge_api_license_release', [], UrlGeneratorInterface::ABSOLUTE_URL),
             ] : null,
-            'licensing' => $this->licensing($registry),
-        ], fn ($value) => null !== $value);
+        ))->toArray();
     }
 
     /**

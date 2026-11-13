@@ -34,8 +34,9 @@ publishes with: `UpmRegistry` hands it an `Omnihub\Package` holding only the
 versions the caller may install - the forge keeps the accounts, the licences
 and who sees what. The listing and the search give a package without a
 `displayName` or a `description` the software's name and tagline. The search
-is still written by the forge (its `publisher` is `glitchr`, which omnihub's
-does not take yet), as is the hub manifest beyond its first source.
+is omnihub's too (`Registry::search()`, with `glitchr` as its `publisher`), and
+so is the hub manifest (`Omnihub\HubManifest`, which `HubCatalog::manifest()`
+fills with the forge's addresses, its licences and its signing key).
 
 ## The tarball
 

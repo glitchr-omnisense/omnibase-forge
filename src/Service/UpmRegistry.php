@@ -41,9 +41,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  *
  * The documents themselves are omnisense/omnihub's (Omnihub\Upm\Registry),
  * written once for a forge and a static hub alike: this registry hands it an
- * Omnihub\Package holding only the versions the caller may install. The
- * search is still written here, until omnihub's takes a publisher (docs:
- * omnihub's needs, docs/upm.md).
+ * Omnihub\Package holding only the versions the caller may install - the
+ * search too, under this registry's publisher name (docs/upm.md).
  */
 class UpmRegistry
 {
@@ -114,39 +113,7 @@ class UpmRegistry
      */
     public function search(string $text, int $from = 0, int $size = 20, array $licenses = []): array
     {
-        $words = array_filter(preg_split('/\s+/', mb_strtolower(trim($text))) ?: []);
-        $objects = [];
-        foreach ($this->listing($licenses) as $package) {
-            $latest = $package->latest();
-            $keywords = \is_array($package->field('keywords')) ? array_values($package->field('keywords')) : null;
-            $haystack = mb_strtolower(implode(' ', [$package->name, $package->field('displayName', ''), $package->field('description', ''), implode(' ', $keywords ?? [])]));
-            foreach ($words as $word) {
-                if (!str_contains($haystack, $word)) {
-                    continue 2;
-                }
-            }
-            $objects[] = [
-                'package' => array_filter([
-                    'name' => $package->name,
-                    'displayName' => $package->field('displayName'),
-                    'version' => $latest->version,
-                    'description' => $package->field('description'),
-                    'keywords' => $keywords,
-                    'date' => self::time($latest->publishedAt),
-                    'links' => array_filter(['homepage' => $package->homepage, 'repository' => $package->repository]) ?: new \ArrayObject(),
-                    'publisher' => ['username' => 'glitchr'],
-                    'maintainers' => [],
-                ], fn ($value) => null !== $value),
-                'score' => ['final' => 1, 'detail' => ['quality' => 1, 'popularity' => 1, 'maintenance' => 1]],
-                'searchScore' => 1,
-            ];
-        }
-
-        return [
-            'objects' => \array_slice($objects, max(0, $from), max(1, min(250, $size))),
-            'total' => \count($objects),
-            'time' => gmdate('D M d Y H:i:s \G\M\TO'),
-        ];
+        return Registry::search($this->listing($licenses), $text, $from, $size, 'glitchr');
     }
 
     /**
@@ -295,10 +262,5 @@ class UpmRegistry
         $name = (string) $software->getUpmName();
 
         return $this->urls->generate('forge_upm_tarball', ['name' => $name, 'filename' => $name.'-'.$release->getVersion().'.tgz'], UrlGeneratorInterface::ABSOLUTE_URL);
-    }
-
-    private static function time(?\DateTimeInterface $at): string
-    {
-        return ($at ? \DateTimeImmutable::createFromInterface($at) : new \DateTimeImmutable('@0'))->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\TH:i:s.000\Z');
     }
 }
