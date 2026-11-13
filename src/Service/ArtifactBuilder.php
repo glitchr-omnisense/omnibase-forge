@@ -6,6 +6,7 @@ use Base\Forge\Entity\Artifact;
 use Base\Forge\Entity\Release;
 use Base\Forge\Enum\Platform;
 use Git\Service\Git2Service;
+use Omnihub\Tarball;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Filesystem\Filesystem;
 
@@ -84,17 +85,17 @@ class ArtifactBuilder
                 $content = $this->upmManifest($content, $name, $release->getVersion());
                 $manifest = true;
             }
-            $files['package/'.$path] = [$content, ($file['filemode'] & 0777) ?: 0644];
+            $files[$path] = [$content, ($file['filemode'] & 0777) ?: 0644];
         }
         if (!$manifest) {
             throw new \RuntimeException(sprintf('%s has no package.json at %s: it is not a Unity package.', $software, $ref));
         }
-        ksort($files, SORT_STRING);
 
         $relative = sprintf('%s/%s/%s-%s.tgz', $software->getSlug(), $release->getVersion(), $name, $release->getVersion());
         $target = rtrim($this->storageDir, '/').'/'.$relative;
         $this->filesystem->mkdir(\dirname($target));
-        $tarball = (string) gzencode(self::tar($files, $release->getPublishedAt()?->getTimestamp() ?? 0), 9);
+        // omnisense/omnihub's tarball: the files under package/, sorted, gzip'd - the same tree, the same bytes.
+        $tarball = Tarball::create($files, $release->getPublishedAt()?->getTimestamp() ?? 0);
         $this->filesystem->dumpFile($target, $tarball);
 
         $this->forget($release, 'upm');
@@ -197,31 +198,13 @@ class ArtifactBuilder
 
     /**
      * A ustar archive of those files (path => [content, mode]), every entry
-     * dated $mtime: the same tree makes the same bytes, so the same shasum.
+     * dated $mtime: the same tree makes the same bytes, so the same shasum -
+     * omnisense/omnihub's writer (Omnihub\Tarball::ustar()), which buildUpm() uses.
      *
      * @param array<string, array{0: string, 1: int}> $files
      */
     public static function tar(array $files, int $mtime = 0): string
     {
-        $tar = '';
-        foreach ($files as $path => [$content, $mode]) {
-            [$prefix, $name] = ['', $path];
-            if (\strlen($path) > 100) {
-                $cut = strrpos(substr($path, 0, 156), '/');
-                if (false === $cut || \strlen(substr($path, $cut + 1)) > 100) {
-                    throw new \RuntimeException(sprintf('"%s" is too long a path for a ustar archive.', $path));
-                }
-                [$prefix, $name] = [substr($path, 0, $cut), substr($path, $cut + 1)];
-            }
-            $header = pack('a100a8a8a8a12a12a8a1a100a6a2a32a32a8a8a155a12',
-                $name, sprintf('%07o', $mode & 0777), sprintf('%07o', 0), sprintf('%07o', 0),
-                sprintf('%011o', \strlen($content)), sprintf('%011o', $mtime), str_repeat(' ', 8), '0', '',
-                "ustar\0", '00', '', '', '', '', $prefix, '');
-            $checksum = array_sum(array_map('ord', str_split($header)));
-            $header = substr_replace($header, sprintf('%06o', $checksum)."\0 ", 148, 8);
-            $tar .= $header.$content.str_repeat("\0", (512 - \strlen($content) % 512) % 512);
-        }
-
-        return $tar.str_repeat("\0", 1024);
+        return Tarball::ustar($files, $mtime);
     }
 }

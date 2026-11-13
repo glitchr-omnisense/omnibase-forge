@@ -13,6 +13,8 @@ order: 10
   omnibase/marketplace;
 - git/git-bundle 1.x, with the php-git2 extension (`ext-git2`), to read the
   repositories (releases, the project's history);
+- omnisense/omnihub 1.x: the Unity registry's documents and tarballs (the
+  same code a static hub publishes with);
 - omnisense/omnistate with omnistate/annuaire-entreprises: they turn on the
   marketplace's company register, which checks the SIRET numbers typed in
   quote requests;

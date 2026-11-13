@@ -1,7 +1,7 @@
 {
     "name": "omnibase/forge",
     "type": "symfony-bundle",
-    "description": "Software forge for base-bundle: releases built from git tags, free and licensed downloads, a private Composer repository, client projects with a shared board, prepaid support hours and quotes - paid through base-bundle-market",
+    "description": "Software forge for base-bundle: releases built from git tags, free and licensed downloads, a private Composer repository, a Unity registry (its documents written by omnisense/omnihub), client projects with a shared board, prepaid support hours and quotes - paid through base-bundle-market",
     "keywords": [
         "symfony",
         "forge",
@@ -38,6 +38,7 @@
         "git/git-bundle": "1.x-dev",
         "omnibridge/symfony": "1.x-dev",
         "omnisense/omnibase": "3.0.*-dev || 4.0.*-dev || 5.0.*-dev",
+        "omnisense/omnihub": "1.x-dev",
         "omnibase/admin": "dev-main",
         "omnibase/marketplace": "dev-main",
         "omnisense/omnistate": "1.x-dev",

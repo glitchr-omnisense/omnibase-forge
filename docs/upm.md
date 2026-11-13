@@ -27,10 +27,21 @@ when the search is a 404), then the package document, then `HEAD` and
 `GET` of the tarball - every request with the registry's token from
 `.upmconfig.toml` as `Authorization: Bearer <token>`.
 
+The package documents and the listing are written by
+[omnisense/omnihub](https://github.com/glitchr-omnisense/omnihub)
+(`Omnihub\Upm\Registry`), the same code a static hub on GitHub Pages
+publishes with: `UpmRegistry` hands it an `Omnihub\Package` holding only the
+versions the caller may install - the forge keeps the accounts, the licences
+and who sees what. The listing and the search give a package without a
+`displayName` or a `description` the software's name and tagline. The search
+is still written by the forge (its `publisher` is `glitchr`, which omnihub's
+does not take yet), as is the hub manifest beyond its first source.
+
 ## The tarball
 
-`ArtifactBuilder::buildUpm()` writes it from the tree at the tag, as npm
-does: a gzip'd ustar archive, every file under `package/`, its
+`ArtifactBuilder::buildUpm()` writes it from the tree at the tag with
+omnihub's `Omnihub\Tarball::create()`, as npm does: a gzip'd ustar archive,
+every file under `package/`, its
 `package.json` carrying the package's UPM name and the release's version
 (whatever the tag's file said). Its sha256, sha1 and sha512 are stored on the
 artifact (format `upm`). `forge:release:sync` builds it with the zip for each

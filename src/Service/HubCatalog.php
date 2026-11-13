@@ -8,6 +8,7 @@ use Base\Forge\Entity\Release;
 use Base\Forge\Entity\Software;
 use Base\Forge\Enum\Platform;
 use Base\Forge\Repository\SoftwareRepository;
+use Omnihub\Source;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\UrlHelper;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -53,13 +54,9 @@ class HubCatalog
             'name' => $this->hub['name'] ?? 'Forge',
             'logo' => $logo ? $this->urlHelper->getAbsoluteUrl($logo) : null,
             'color' => $this->hub['color'] ?? null,
-            'sources' => [array_filter([
-                'name' => $this->hub['name'] ?? 'Forge',
-                'type' => 'upm',
-                'url' => $registry,
-                'scopes' => $scopes,
-                'catalog' => $this->urls->generate('forge_hub_catalog', [], UrlGeneratorInterface::ABSOLUTE_URL),
-            ])],
+            // Its own registry, written as omnisense/omnihub writes a source (the rest of the
+            // manifest waits on omnihub's HubManifest taking "licenses" and the forge's licensing).
+            'sources' => [(new Source(Source::UPM, $registry, ($this->hub['name'] ?? 'Forge') ?: null, $scopes, $this->urls->generate('forge_hub_catalog', [], UrlGeneratorInterface::ABSOLUTE_URL)))->toArray()],
             'games' => $this->urls->generate('forge_hub_catalog', [], UrlGeneratorInterface::ABSOLUTE_URL),
             'checkout' => ($this->hub['checkout'] ?? true) ? [
                 'device' => $this->urls->generate('forge_hub_device', [], UrlGeneratorInterface::ABSOLUTE_URL),

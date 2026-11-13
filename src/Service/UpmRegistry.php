@@ -8,6 +8,9 @@ use Base\Forge\Entity\Release;
 use Base\Forge\Entity\Software;
 use Base\Forge\Repository\SoftwareRepository;
 use Git\Service\Git2Service;
+use Omnihub\Package;
+use Omnihub\Upm\Registry;
+use Omnihub\Version;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -35,6 +38,12 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * Each version's metadata is its package.json at that tag, read through
  * git/git-bundle, with its name and version set here - as the tarball has
  * them (ArtifactBuilder::buildUpm()).
+ *
+ * The documents themselves are omnisense/omnihub's (Omnihub\Upm\Registry),
+ * written once for a forge and a static hub alike: this registry hands it an
+ * Omnihub\Package holding only the versions the caller may install. The
+ * search is still written here, until omnihub's takes a publisher (docs:
+ * omnihub's needs, docs/upm.md).
  */
 class UpmRegistry
 {
@@ -89,40 +98,12 @@ class UpmRegistry
      */
     public function document(Software $software, array $licenses = []): array
     {
-        $versions = $times = [];
+        $versions = [];
         foreach ($this->installable($software, $licenses) as [$release, $artifact]) {
-            $manifest = $this->manifest($software, $release);
-            $versions[$release->getVersion()] = array_merge($manifest, [
-                'name' => $software->getUpmName(),
-                'version' => $release->getVersion(),
-                '_id' => $software->getUpmName().'@'.$release->getVersion(),
-                'dist' => array_filter([
-                    'tarball' => $this->tarballUrl($software, $release),
-                    'shasum' => $artifact->getSha1(),
-                    'integrity' => $artifact->getIntegrity(),
-                ]),
-            ]);
-            $times[$release->getVersion()] = self::time($release->getPublishedAt());
+            $versions[] = $this->version($software, $release, $artifact, $this->manifest($software, $release));
         }
 
-        // Oldest first, as npm writes them.
-        uksort($versions, 'version_compare');
-        uksort($times, 'version_compare');
-        $latest = self::latest(array_keys($versions));
-        $head = $latest ? $versions[$latest] : [];
-        $published = array_filter(array_map(fn ($time) => strtotime($time), $times));
-
-        return array_filter([
-            '_id' => $software->getUpmName(),
-            'name' => $software->getUpmName(),
-            'description' => $head['description'] ?? $software->getTagline(),
-            'dist-tags' => $latest ? ['latest' => $latest] : new \ArrayObject(),
-            'versions' => $versions ?: new \ArrayObject(),
-            'time' => $times + ($published ? ['created' => gmdate('Y-m-d\TH:i:s.000\Z', min($published)), 'modified' => gmdate('Y-m-d\TH:i:s.000\Z', max($published))] : []),
-            'keywords' => $head['keywords'] ?? null,
-            'homepage' => $software->getHomepage(),
-            'license' => $head['license'] ?? null,
-        ], fn ($value) => null !== $value);
+        return Registry::document(new Package((string) $software->getUpmName(), $versions, $software->getHomepage()), $software->getTagline());
     }
 
     /**
@@ -135,8 +116,10 @@ class UpmRegistry
     {
         $words = array_filter(preg_split('/\s+/', mb_strtolower(trim($text))) ?: []);
         $objects = [];
-        foreach ($this->summaries($licenses) as $summary) {
-            $haystack = mb_strtolower(implode(' ', [$summary['name'], $summary['displayName'] ?? '', $summary['description'] ?? '', implode(' ', $summary['keywords'] ?? [])]));
+        foreach ($this->listing($licenses) as $package) {
+            $latest = $package->latest();
+            $keywords = \is_array($package->field('keywords')) ? array_values($package->field('keywords')) : null;
+            $haystack = mb_strtolower(implode(' ', [$package->name, $package->field('displayName', ''), $package->field('description', ''), implode(' ', $keywords ?? [])]));
             foreach ($words as $word) {
                 if (!str_contains($haystack, $word)) {
                     continue 2;
@@ -144,13 +127,13 @@ class UpmRegistry
             }
             $objects[] = [
                 'package' => array_filter([
-                    'name' => $summary['name'],
-                    'displayName' => $summary['displayName'] ?? null,
-                    'version' => $summary['version'],
-                    'description' => $summary['description'] ?? null,
-                    'keywords' => $summary['keywords'] ?? null,
-                    'date' => $summary['date'],
-                    'links' => array_filter(['homepage' => $summary['homepage'] ?? null, 'repository' => $summary['repository'] ?? null]) ?: new \ArrayObject(),
+                    'name' => $package->name,
+                    'displayName' => $package->field('displayName'),
+                    'version' => $latest->version,
+                    'description' => $package->field('description'),
+                    'keywords' => $keywords,
+                    'date' => self::time($latest->publishedAt),
+                    'links' => array_filter(['homepage' => $package->homepage, 'repository' => $package->repository]) ?: new \ArrayObject(),
                     'publisher' => ['username' => 'glitchr'],
                     'maintainers' => [],
                 ], fn ($value) => null !== $value),
@@ -174,19 +157,7 @@ class UpmRegistry
      */
     public function all(array $licenses = []): array
     {
-        $all = ['_updated' => time()];
-        foreach ($this->summaries($licenses) as $summary) {
-            $all[$summary['name']] = array_filter([
-                'name' => $summary['name'],
-                'description' => $summary['description'] ?? null,
-                'dist-tags' => ['latest' => $summary['version']],
-                'versions' => [$summary['version'] => 'latest'],
-                'time' => ['modified' => $summary['date']],
-                'keywords' => $summary['keywords'] ?? null,
-            ], fn ($value) => null !== $value);
-        }
-
-        return $all;
+        return Registry::all($this->listing($licenses));
     }
 
     /**
@@ -264,35 +235,45 @@ class UpmRegistry
     }
 
     /**
+     * Every Unity package with a version the caller may install, as the search and the listing
+     * show it: its newest such version only (one package.json read a package), whose manifest
+     * carries the forge's defaults - the software's name for a display name, its tagline for a
+     * description, an empty one left out.
+     *
      * @param list<License> $licenses
      *
-     * @return list<array{name: string, version: string, date: string, displayName?: string, description?: string, keywords?: list<string>, homepage?: string, repository?: string}>
+     * @return list<Package>
      */
-    private function summaries(array $licenses): array
+    private function listing(array $licenses): array
     {
-        $summaries = [];
+        $packages = [];
         foreach ($this->software->findUpmPackages() as $software) {
-            $releases = [];
-            foreach ($this->installable($software, $licenses) as [$release]) {
-                $releases[$release->getVersion()] = $release;
+            $installable = [];
+            foreach ($this->installable($software, $licenses) as [$release, $artifact]) {
+                $installable[$release->getVersion()] = [$release, $artifact];
             }
-            if (!$latest = self::latest(array_keys($releases))) {
+            $newest = (new Package((string) $software->getUpmName(), array_map(fn (array $found) => $this->version($software, $found[0], $found[1], []), $installable)))->latest();
+            if (!$newest) {
                 continue;
             }
-            $manifest = $this->manifest($software, $releases[$latest]);
-            $summaries[] = array_filter([
-                'name' => (string) $software->getUpmName(),
-                'version' => $latest,
-                'date' => self::time($releases[$latest]->getPublishedAt()),
-                'displayName' => $manifest['displayName'] ?? $software->getName(),
-                'description' => $manifest['description'] ?? $software->getTagline(),
-                'keywords' => isset($manifest['keywords']) && \is_array($manifest['keywords']) ? array_values($manifest['keywords']) : null,
-                'homepage' => $software->getHomepage(),
-                'repository' => $software->getSourceUrl(),
-            ], fn ($value) => null !== $value && '' !== $value);
+            [$release, $artifact] = $installable[$newest->version];
+            $manifest = $this->manifest($software, $release);
+            foreach (['displayName' => $software->getName(), 'description' => $software->getTagline()] as $key => $default) {
+                $manifest[$key] ??= $default;
+                if (null === $manifest[$key] || '' === $manifest[$key]) {
+                    unset($manifest[$key]);
+                }
+            }
+            $packages[] = new Package((string) $software->getUpmName(), [$this->version($software, $release, $artifact, $manifest)], $software->getHomepage(), $software->getSourceUrl());
         }
 
-        return $summaries;
+        return $packages;
+    }
+
+    /** @param array<string, mixed> $manifest */
+    private function version(Software $software, Release $release, Artifact $artifact, array $manifest): Version
+    {
+        return new Version($release->getVersion(), $manifest, $this->tarballUrl($software, $release), (string) $artifact->getSha1(), $artifact->getSha512(), $release->getPublishedAt(), $release->getChangelog());
     }
 
     /** Its package.json at that tag, its name and version the release's. */
@@ -314,16 +295,6 @@ class UpmRegistry
         $name = (string) $software->getUpmName();
 
         return $this->urls->generate('forge_upm_tarball', ['name' => $name, 'filename' => $name.'-'.$release->getVersion().'.tgz'], UrlGeneratorInterface::ABSOLUTE_URL);
-    }
-
-    /** @param list<string> $versions the newest: the newest stable one, else the newest pre-release */
-    private static function latest(array $versions): ?string
-    {
-        $stable = array_filter($versions, fn (string $version) => !preg_match('/[a-z]/i', $version));
-        $pool = $stable ?: $versions;
-        usort($pool, 'version_compare');
-
-        return $pool ? (string) end($pool) : null;
     }
 
     private static function time(?\DateTimeInterface $at): string

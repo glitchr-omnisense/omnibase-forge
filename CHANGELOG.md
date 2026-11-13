@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Added
+- `tests/Controller/RegistrySnapshotTest.php`: the registry's and the hub's documents (package documents, search,
+  listing, tarball heads, hub manifest, catalogue; a free, a licensed, a draft package and two games, anonymously
+  and with a key) compared byte for byte with `tests/Fixtures/registry-snapshot.json`.
 - The hub manifest (`/upm/-/hub.json`) publishes the licensing key (plan item 17.1): `licensing` with `algorithm`,
   `publicKey`, `registry` and, after a rotation, `previousKey`, `rotation` (the previous key's Ed25519 signature of
   `"forge-key-rotation:v1:" + publicKey`, as Forge Store checks it) and `previousKeyValidUntil`. A rotation is
@@ -14,6 +17,13 @@
   `FORGE_LICENSE_ROTATION`, `FORGE_LICENSE_PREVIOUS_UNTIL`); `Service\LicenseKeyVault`. docs/licensing.md.
 
 ### Changed
+- **Requires omnisense/omnihub** (`1.x-dev`): the Unity registry's package documents (`/upm/<name>`) and listing
+  (`/upm/-/all`) are written by `Omnihub\Upm\Registry` from `Omnihub\Package`s that `UpmRegistry` builds with the
+  versions the caller may install; the UPM tarball by `Omnihub\Tarball` (`ArtifactBuilder::tar()` delegates to it);
+  the hub manifest's first source by `Omnihub\Source`. Every document is byte for byte what it was (the snapshot
+  test). The search, the rest of the manifest and the catalogue stay the forge's until omnihub takes a publisher, a
+  manifest's `licenses` and the forge's licensing fields. Not the same output only for a malformed package.json
+  whose `keywords` is not a list: the package document now leaves it out (or re-indexes it).
 - A licence token is bound to its registry and its package (plan item 17.2): the payload's format is 2 and carries
   `registry` (the Unity registry's address, the manifest's `licensing.registry`) and `package` (the UPM name, null
   for a game or an application). Forge Seal reads it unchanged (its JsonUtility ignores the new fields).
