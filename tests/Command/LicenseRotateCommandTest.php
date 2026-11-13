@@ -47,6 +47,11 @@ class LicenseRotateCommandTest extends KernelTestCase
         }
         $application = new Application(self::bootKernel());
         self::assertTrue($application->has('forge:license:keypair'));
+        // The host's vault reaches the service: with framework.secrets on, the commands can seal.
+        $container = self::getContainer();
+        if ($container->has('secrets.vault')) {
+            self::assertTrue($container->get(LicenseKeyVault::class)->has(false), 'the secrets vault is wired');
+        }
         // Wired with the host's vault; without a key in the test environment it refuses, writing nothing.
         $rotate = new CommandTester($application->find('forge:license:rotate'));
         self::assertSame(Command::FAILURE, $rotate->execute([]));

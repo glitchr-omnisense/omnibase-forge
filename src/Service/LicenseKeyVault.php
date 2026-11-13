@@ -22,9 +22,11 @@ class LicenseKeyVault
     public const ROTATION = 'FORGE_LICENSE_ROTATION';
     public const PREVIOUS_UNTIL = 'FORGE_LICENSE_PREVIOUS_UNTIL';
 
+    // A nullable argument makes the reference optional (null when framework.secrets is off). The
+    // YAML spelling '@?id' means nothing in the attribute: it would look for a service named '?id'.
     public function __construct(
-        #[Autowire('@?secrets.vault')] private readonly ?AbstractVault $vault = null,
-        #[Autowire('@?secrets.local_vault')] private readonly ?AbstractVault $localVault = null,
+        #[Autowire(service: 'secrets.vault')] private readonly ?AbstractVault $vault = null,
+        #[Autowire(service: 'secrets.local_vault')] private readonly ?AbstractVault $localVault = null,
     ) {
     }
 
