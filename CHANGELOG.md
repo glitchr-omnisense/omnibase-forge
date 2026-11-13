@@ -17,6 +17,9 @@
   `FORGE_LICENSE_ROTATION`, `FORGE_LICENSE_PREVIOUS_UNTIL`); `Service\LicenseKeyVault`. docs/licensing.md.
 
 ### Changed
+- `forge.hub.color` is checked when the configuration is read: `#rrggbb` or nothing. Anything else is a
+  configuration error at boot, where it was served as is in hub.json (and omnisense/omnihub's `HubManifest`, which
+  the manifest moves onto, throws on it). `ForgeConfigurationTest`.
 - **Requires omnisense/omnihub** (`1.x-dev`): the Unity registry's package documents (`/upm/<name>`) and listing
   (`/upm/-/all`) are written by `Omnihub\Upm\Registry` from `Omnihub\Package`s that `UpmRegistry` builds with the
   versions the caller may install; the UPM tarball by `Omnihub\Tarball` (`ArtifactBuilder::tar()` delegates to it);

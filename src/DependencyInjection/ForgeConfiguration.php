@@ -46,7 +46,14 @@ class ForgeConfiguration implements ConfigurationInterface
                     ->children()
                         ->scalarNode('name')->defaultValue('Forge')->info('The hub\'s name, shown by the clients.')->end()
                         ->scalarNode('logo')->defaultNull()->info('Its logo: an absolute URL, or a path on this site.')->end()
-                        ->scalarNode('color')->defaultNull()->info('Its accent colour, #rrggbb.')->end()
+                        ->scalarNode('color')->defaultNull()->info('Its accent colour, #rrggbb.')
+                            // Checked here, at boot: a colour the clients cannot read (omnisense/omnihub's
+                            // HubManifest throws on it) is a configuration error, never a 500 on hub.json.
+                            ->validate()
+                                ->ifTrue(static fn (mixed $color): bool => null !== $color && (!\is_string($color) || !preg_match('/^#[0-9a-fA-F]{6}$/', $color)))
+                                ->thenInvalid('forge.hub.color must be a colour written #rrggbb (six hexadecimal digits), %s given.')
+                            ->end()
+                        ->end()
                         ->arrayNode('scopes')->scalarPrototype()->end()->defaultValue([])
                             ->info('The scopes of the Unity registry (com.glitchr): those of the Unity packages when empty.')->end()
                         ->booleanNode('checkout')->defaultTrue()

@@ -80,7 +80,7 @@ forge:
     hub:
         name: 'Glitch Art'
         logo: '/assets/images/brand/monkey.png'   # or an absolute URL
-        color: '#fc6875'
+        color: '#fc6875'                           # #rrggbb, checked at boot
         scopes: ['com.glitchr']                    # empty: those of the Unity packages
         checkout: true
 ```
