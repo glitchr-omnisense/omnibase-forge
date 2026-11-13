@@ -8,11 +8,12 @@ use Base\Forge\Repository\LicenseRepository;
 use Psr\Cache\CacheItemPoolInterface;
 
 /**
- * An editor linked to its user's licences, by a device code (as OAuth's device flow): the Unity
- * window asks for a code, the user opens the link page on the site, signs in, buys what they
- * need, and links the editor; the window, which asked meanwhile, then receives a licence key -
- * the key of one of the user's seats, made anew (the seat's previous key stops working) - and
- * stores it as the registry's token in the user's .upmconfig.toml.
+ * An editor linked to its user's account and licences, by a device code (as OAuth's device
+ * flow): the Unity window asks for a code, the user opens the link page on the site, signs in
+ * and links the editor; the window, which asked meanwhile, then receives a token of the account
+ * (HubAccounts: what it buys and saves payment methods with, plan item 16.1) and, when the user
+ * holds a seat, a licence key - the key of one of their seats, made anew (the seat's previous key
+ * stops working) - which it stores as the registry's token in the user's .upmconfig.toml.
  *
  * The codes live ten minutes in the cache, nowhere else; a key is handed over once.
  */
@@ -26,6 +27,7 @@ class DeviceLinks
         private readonly CacheItemPoolInterface $cache,
         private readonly LicenseRepository $licenses,
         private readonly LicenseIssuer $issuer,
+        private readonly HubAccounts $accounts,
     ) {
     }
 
@@ -54,33 +56,33 @@ class DeviceLinks
     }
 
     /**
-     * The user links the editor: a seat of theirs on a valid licence gets a new key, kept for the
-     * editor to take. Null when they hold no seat to give it.
+     * The user links the editor: a token of their account is made, and a seat of theirs on a
+     * valid licence, when they hold one, gets a new key - both kept for the editor to take. False
+     * when the code is unknown, expired or already used.
      */
-    public function approve(string $userCode, User $user): ?LicenseSeat
+    public function approve(string $userCode, User $user): bool
     {
         $found = $this->find($userCode);
         if (!$found || 'pending' !== $found['status']) {
-            return null;
+            return false;
         }
         $seat = $this->seatOf($user);
-        if (!$seat) {
-            return null;
-        }
         $entry = $this->load('device.'.$found['device']);
         $entry['status'] = 'approved';
-        $entry['key'] = $this->issuer->rekey($seat);
-        $entry['email'] = $seat->getEmail();
+        $entry['account_token'] = $this->accounts->issue($user);
+        $entry['key'] = $seat ? $this->issuer->rekey($seat) : null;
+        $entry['email'] = $seat?->getEmail() ?? (string) $user->getEmail();
         $this->save('device.'.$found['device'], $entry);
 
-        return $seat;
+        return true;
     }
 
     /**
-     * What the editor gets when it asks: the key once approved (then the code is spent), else why
-     * not - authorization_pending, slow_down, expired_token (RFC 8628's words).
+     * What the editor gets when it asks: once approved (then the code is spent) the account's
+     * token, the e-mail, and the licence key when the user held a seat; else why not -
+     * authorization_pending, slow_down, expired_token (RFC 8628's words).
      *
-     * @return array{key: string, email: string}|array{error: string}
+     * @return array{account_token: string, email: string, key?: string}|array{error: string}
      */
     public function poll(string $deviceCode): array
     {
@@ -92,7 +94,7 @@ class DeviceLinks
             $this->cache->deleteItem($this->id('device.'.$deviceCode));
             $this->cache->deleteItem($this->id('user.'.str_replace('-', '', $entry['user_code'])));
 
-            return ['key' => (string) $entry['key'], 'email' => (string) $entry['email']];
+            return array_filter(['key' => $entry['key'] ?? null, 'email' => (string) $entry['email'], 'account_token' => (string) ($entry['account_token'] ?? '')], static fn ($value) => null !== $value && '' !== $value);
         }
         $now = microtime(true);
         $tooSoon = $now - (float) $entry['polled'] < self::INTERVAL - 0.5;

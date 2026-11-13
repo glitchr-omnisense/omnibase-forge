@@ -3,6 +3,27 @@
 ## [Unreleased]
 
 ### Added
+- One-click purchases from Forge Store and Forge Hub (plan items 16.2 to 16.4, and 17.3 on the server; docs/hub.md,
+  "Buying in one click"), through omnisense/omnitrade 1.1's saved methods and the gateway `forge.hub.payment_gateway`
+  names (`stripe` by default): `GET|POST /upm/-/hub/payment-methods` (listed from the provider, saved on its page),
+  `DELETE /upm/-/hub/payment-methods/{id}` (only the user's), `GET /upm/-/hub/quote?offer=` (the amount the order
+  charges, its currency, the store's name), `POST /upm/-/hub/purchases` with an `Idempotency-Key` (charged
+  off-session: paid, `requires_action` with the bank's 3-D Secure page, refused 402; 409 `price_changed` with the price
+  now when it is not the amount confirmed; the same key answers the same purchase, 200 `Idempotent-Replayed`), `GET
+  /upm/-/hub/purchases/{id}` (the licence key handed over once paid). One purchase of a user at a time under a
+  symfony/lock lock (409 `purchase_in_progress` after 15 s). The order is the shop's (`Checkout::settle()`), paid at once
+  or by Stripe's `payment_intent.succeeded` webhook, the licence issued by `OrderPaidSubscriber`; a refused one is
+  abandoned, not left as the user's cart. Return pages `/hub/payment-methods/saved` and `/hub/purchases/{id}/done`. The
+  manifest's `checkout` gains `quote`, `purchases` and `methods`. Entities `HubToken`, `PaymentCustomer` (the
+  provider's customer reference: all the forge keeps - never a card number) and `HubPurchase`: **a migration in the
+  host** (tables `forge_hub_token`, `forge_payment_customer`, `forge_hub_purchase`). Services `HubAccounts`,
+  `HubPayments`, `HubPurchases`, `HubPurchaseCharges`; `HubAccountSubscriber` (401 before the payload is read).
+  `HubPurchaseTest`: the whole path on a recorded Stripe, signed webhook in, v2 licence token out and verified with
+  the published key. Requires symfony/lock; suggests omnisense/omnitrade ^1.1.
+- The device flow links an editor to its user's account (plan item 16.1): `/upm/-/hub/token` answers an
+  `account_token` (`gla_...`, only its SHA-256 kept) beside the e-mail, and the licence key only when the user holds a
+  seat - a user without a licence can link the editor now, to buy from it. `DeviceLinks::approve()` returns a bool.
+  The hub API's errors are JSON (`LicenseApiErrorSubscriber` covers `/upm/-/hub/`).
 - `tests/Controller/RegistrySnapshotTest.php`: the registry's and the hub's documents (package documents, search,
   listing, tarball heads, hub manifest, catalogue; a free, a licensed, a draft package and two games, anonymously
   and with a key) compared byte for byte with `tests/Fixtures/registry-snapshot.json`.

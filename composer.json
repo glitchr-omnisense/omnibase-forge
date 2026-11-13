@@ -47,6 +47,7 @@
         "symfony/dependency-injection": "^6.0|^7.0|^8.0",
         "symfony/form": "^6.0|^7.0|^8.0",
         "symfony/http-kernel": "^6.0|^7.0|^8.0",
+        "symfony/lock": "^6.0|^7.0|^8.0",
         "symfony/security-bundle": "^6.0|^7.0|^8.0"
     },
     "require-dev": {
@@ -57,6 +58,7 @@
     },
     "suggest": {
         "ext-git2": "Required by git/git-bundle to read repositories (releases, the project dashboard's history)",
+        "omnisense/omnitrade": "^1.1 with a provider that saves payment methods (omnitrade/stripe ^1.1): one-click purchases from Forge Store and Forge Hub (forge.hub.payment_gateway, docs/hub.md)",
         "symfony/http-client": "Reads the pipelines' runs from GitHub Actions (Pipeline\\GithubActionsSource)",
         "symfony/yaml": "The stages of a GitHub Actions run, from its workflow file's needs"
     },

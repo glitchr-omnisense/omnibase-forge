@@ -15,8 +15,9 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 /**
  * The page a hub client sends its user to (the device flow, DeviceLinks): signed in, they see the
  * code their editor shows, the item it asked for with its offers - bought here, in a tab of their
- * own, through the shop's cart and checkout - and, once they hold a licence, "Link this editor":
- * the editor then receives a key of theirs and installs.
+ * own, through the shop's cart and checkout, or later from the editor itself - and "Link this
+ * editor": the editor then receives a token of their account and, once they hold a licence, a key
+ * of theirs, and installs.
  */
 #[IsGranted('ROLE_USER')]
 class HubLinkController extends AbstractController
@@ -39,8 +40,7 @@ class HubLinkController extends AbstractController
             if (!$this->isCsrfTokenValid('forge_hub_link', (string) $request->request->get('_token'))) {
                 throw $this->createAccessDeniedException('Invalid token.');
             }
-            $linked = $this->links->approve($code, $user);
-            if ($linked) {
+            if ($linked = $this->links->approve($code, $user)) {
                 $found['status'] = 'approved';
             }
         }

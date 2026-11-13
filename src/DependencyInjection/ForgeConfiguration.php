@@ -58,6 +58,8 @@ class ForgeConfiguration implements ConfigurationInterface
                             ->info('The scopes of the Unity registry (com.glitchr): those of the Unity packages when empty.')->end()
                         ->booleanNode('checkout')->defaultTrue()
                             ->info('Whether the clients offer to buy: the licensed packages\' offers, bought on this site and linked to the editor by a device code.')->end()
+                        ->scalarNode('payment_gateway')->defaultValue('stripe')
+                            ->info('The omnitrade gateway (omnitrade.gateways.<name>) the clients\' one-click purchases go through: payment methods saved on its page, charged off-session (docs/hub.md). The shop needs a payment method naming it (gatewayFactory). Null: no one-click purchase.')->end()
                     ->end()
                 ->end()
             ->end();

@@ -29,6 +29,9 @@ class HubTest extends ForgeWebTestCase
         self::assertSame('https://localhost/upm/-/hub/catalog.json', $manifest['sources'][0]['catalog']);
         self::assertSame('https://localhost/upm/-/hub/device', $manifest['checkout']['device']);
         self::assertSame('https://localhost/upm/-/hub/token', $manifest['checkout']['token']);
+        self::assertSame('https://localhost/upm/-/hub/quote', $manifest['checkout']['quote']);
+        self::assertSame('https://localhost/upm/-/hub/purchases', $manifest['checkout']['purchases']);
+        self::assertSame('https://localhost/upm/-/hub/payment-methods', $manifest['checkout']['methods']);
         self::assertSame(['list' => 'https://localhost/upm/-/hub/licenses', 'activate' => 'https://localhost/api/licenses/activate', 'release' => 'https://localhost/api/licenses/release'], $manifest['licenses']);
     }
 
@@ -54,15 +57,30 @@ class HubTest extends ForgeWebTestCase
         self::assertSame(400, $pending->getStatusCode());
         self::assertSame('authorization_pending', json_decode((string) $pending->getContent(), true)['error']);
 
-        // The user, signed in, without a licence: nothing to link.
+        // The user, signed in, without a licence: linked all the same - the editor receives a token
+        // of the account (to buy from it, plan item 16.1), and no licence key.
         $this->signIn($buyer);
         $page = $this->request('GET', '/hub/link?code='.$device['user_code']);
         self::assertSame(200, $page->getStatusCode(), substr(strip_tags((string) $page->getContent()), 0, 1500));
-        self::assertSame(0, $this->xpath($page)->query('//form[@method="post"]//input[@name="code"]')->length);
+        $token = $this->xpath($page)->evaluate('string(//form[@method="post"]//input[@name="_token"]/@value)');
+        self::assertNotSame('', $token, 'the link form, without a licence too');
+        self::assertSame(200, $this->request('POST', '/hub/link', [], null, ['code' => $device['user_code'], '_token' => $token])->getStatusCode());
+        $session = $this->cookies;
+        $this->cookies = [];
+        $account = $this->json('POST', '/upm/-/hub/token', json_encode(['device_code' => $device['device_code']]));
+        self::assertMatchesRegularExpression('/^gla_([0-9A-HJKMNP-TV-Z]{4}-){7}[0-9A-HJKMNP-TV-Z]{4}$/', $account['account_token']);
+        self::assertSame($buyer->getEmail(), $account['email']);
+        self::assertArrayNotHasKey('key', $account, 'no seat, no licence key');
+        self::assertSame(200, $this->request('GET', '/upm/-/hub/payment-methods', ['HTTP_AUTHORIZATION' => 'Bearer '.$account['account_token']])->getStatusCode(), 'the account\'s token opens the account\'s API');
+        self::assertSame(401, $this->request('GET', '/upm/-/hub/catalog.json', ['HTTP_AUTHORIZATION' => 'Bearer '.$account['account_token']])->getStatusCode(), 'and is no registry key');
+        $this->cookies = $session;
 
         // With a licence of the paid game: linked, and the editor receives a key that opens it.
         static::getContainer()->get(LicenseIssuer::class)->issue(static::getContainer()->get(EntityManagerInterface::class)->find(Software::class, $paid->getId()), static::getContainer()->get(EntityManagerInterface::class)->find($buyer::class, $buyer->getId()));
         static::getContainer()->get(EntityManagerInterface::class)->flush();
+        $this->cookies = [];
+        $device = $this->json('POST', '/upm/-/hub/device', '{"item":"com.glitchr.nothing"}');
+        $this->cookies = $session;
         $page = $this->xpath($this->request('GET', '/hub/link?code='.$device['user_code']));
         $token = $page->evaluate('string(//form[@method="post"]//input[@name="_token"]/@value)');
         self::assertNotSame('', $token, 'the link form');
@@ -74,6 +92,7 @@ class HubTest extends ForgeWebTestCase
         self::assertMatchesRegularExpression('/^glk_/', $key['key']);
         self::assertSame($buyer->getEmail(), $key['email']);
         self::assertSame('https://localhost/upm', $key['registry']);
+        self::assertNotSame($account['account_token'], $key['account_token'], 'a token per linked editor');
         $again = $this->request('POST', '/upm/-/hub/token', ['CONTENT_TYPE' => 'application/json'], json_encode(['device_code' => $device['device_code']]));
         self::assertSame('expired_token', json_decode((string) $again->getContent(), true)['error'], 'a key is handed over once');
 

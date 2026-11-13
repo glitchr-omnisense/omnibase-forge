@@ -21,17 +21,22 @@ docker run --rm --network none \
     omnisense/omnibase-harness:latest test forge
 ```
 
+The harness image installs omnisense/omnitrade 1.0: `HubPurchaseTest` needs 1.1 and omnitrade/stripe 1.1, so mount
+their checkouts over `/srv/demo/vendor/omnisense/omnitrade` and `/srv/demo/vendor/omnitrade/stripe` (an override of
+`compose.checkouts.yml`, as for omnisense/omnihub) until the image is rebuilt; without them it is skipped.
+
 On this checkout, in the harness:
 
 ```text
-OK (54 tests, 513 assertions)
+OK (86 tests, 893 assertions)
 ```
 
 ## What the tests cover
 
 | Folder | Tests |
 |---|---|
-| `Controller` | the board's controller, the CRUDs' required fields, a game's pages, the hub, the pipelines' screens, the Unity registry |
+| `Controller` | the board's controller, the CRUDs' required fields, a game's pages, the hub, the one-click purchase from the hub clients (`HubPurchaseTest`: a card saved, the price confirmed, the bank's check, Stripe's signed webhook, the licence key handed over and its v2 token verified; Stripe answering through a recorded client), the pipelines' screens, the Unity registry |
+| `DependencyInjection` | `ForgeConfigurationTest`: the hub's colour checked at boot |
 | `Entity` | licences, projects, quotes |
 | `Enum` | `PipelineStatusTest` |
 | `Model` | `CardMoveTest`: a card's move as the board sends it |

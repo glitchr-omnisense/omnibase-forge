@@ -10,9 +10,10 @@ use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Validator\Exception\ValidationFailedException;
 
 /**
- * The licence API answers its errors in JSON, with their own status - a
+ * The licence API and the hub clients' API (/upm/-/hub/: catalogue, payment
+ * methods, purchases) answer their errors in JSON, with their own status - a
  * request it cannot read is a 422 with what is wrong -, never the site's
- * HTML error page: the one reading it is a game or an application.
+ * HTML error page: the one reading it is a game, an application or an editor.
  * Before base-bundle's error pages, which would pick their own status.
  */
 final class LicenseApiErrorSubscriber implements EventSubscriberInterface
@@ -24,7 +25,8 @@ final class LicenseApiErrorSubscriber implements EventSubscriberInterface
 
     public function onException(ExceptionEvent $event): void
     {
-        if (!str_starts_with($event->getRequest()->getPathInfo(), '/api/licenses/')) {
+        $path = $event->getRequest()->getPathInfo();
+        if (!str_starts_with($path, '/api/licenses/') && !str_starts_with($path, '/upm/-/hub/')) {
             return;
         }
 

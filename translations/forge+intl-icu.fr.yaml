@@ -49,10 +49,23 @@ hub:
     confirm: "Le code affiché par votre éditeur :"
     link: "Relier cet éditeur"
     rekey: "Une nouvelle clé est créée pour votre poste de {software} : la clé d'avant ne fonctionne plus."
-    no_seat: "Vous n'avez pas encore de licence : achetez-en une à côté, puis revenez sur cette page relier l'éditeur."
+    no_seat: "Vous n'avez pas encore de licence : reliez quand même l'éditeur pour acheter depuis celui-ci, ou achetez-en une à côté d'abord."
     after_paying: "La boutique s'ouvre dans un nouvel onglet. Une fois payé, revenez sur cette page relier l'éditeur."
     done: "Relié"
-    done_text: "Votre éditeur a reçu votre clé : vous pouvez fermer cette page et revenir dans Unity."
+    done_text: "Votre éditeur est relié à votre compte : vous pouvez fermer cette page et revenir dans Unity."
+  returned:
+    saved:
+      title: "Moyen de paiement enregistré"
+      text: "Vous pouvez fermer cette page et revenir dans Unity : vos achats se font désormais en un clic."
+    paid:
+      title: "Payé"
+      text: "Votre banque a confirmé le paiement. Revenez dans Unity : le paquet s'installe tout seul."
+    pending:
+      title: "En cours de confirmation"
+      text: "Votre banque confirme encore le paiement. Revenez dans Unity : le paquet s'installe dès qu'il est payé."
+    refused:
+      title: "Paiement refusé"
+      text: "Le paiement n'est pas passé et rien n'a été débité. Revenez dans Unity pour réessayer, ou avec un autre moyen de paiement."
 offer:
   seats: "{count, plural, one {# poste} other {# postes}}"
   duration: "{months} mois"

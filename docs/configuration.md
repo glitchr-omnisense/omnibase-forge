@@ -66,6 +66,9 @@ forge:
 
         # Whether the clients offer to buy: the licensed packages' offers, bought on this site and linked to the editor by a device code.
         checkout:             true
+
+        # The omnitrade gateway (omnitrade.gateways.<name>) the clients' one-click purchases go through: payment methods saved on its page, charged off-session (docs/hub.md). The shop needs a payment method naming it (gatewayFactory). Null: no one-click purchase.
+        payment_gateway:      stripe
 ```
 
 | Key | Default | Read by |
@@ -80,6 +83,7 @@ forge:
 | `low_balance_minutes` | 120 | `forge:hours:low-balance`: the balance under which a client is reminded |
 | `contact_email` | null | where quote requests are mailed; null, the back office only |
 | `invoicing.vat_rate`, `invoicing.vat_exemption` | 20.0, null | the invoices of hours ([Invoices of hours](invoices.md)) |
+| `hub.payment_gateway` | `stripe` | the omnitrade gateway one-click purchases from Forge Store and Forge Hub go through ([The hub](hub.md#buying-in-one-click)); null: none |
 | `hub.name`, `logo`, `color`, `scopes`, `checkout` | `Forge`, none, none, the Unity packages', true | the hub manifest ([The hub](hub.md)); `color` is `#rrggbb` or nothing - anything else stops the container from compiling (a configuration error at boot, not a broken hub.json) |
 
 Each key is a container parameter (`%forge.storage_dir%`,

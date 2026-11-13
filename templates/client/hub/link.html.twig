@@ -20,15 +20,15 @@
             {% if code %}<p class="forge-muted">{{ '@forge.hub.link.unknown'|trans }}</p>{% endif %}
         {% else %}
             <p>{{ '@forge.hub.link.confirm'|trans }} <strong class="forge-hub-usercode">{{ code }}</strong></p>
-            {% if seat %}
             <form method="post">
                 <input type="hidden" name="_token" value="{{ csrf_token('forge_hub_link') }}">
                 <input type="hidden" name="code" value="{{ code }}">
                 <button type="submit" class="forge-btn forge-btn-primary"><span>{{ '@forge.hub.link.link'|trans }}</span></button>
             </form>
+            {% if seat %}
             <p class="forge-meta">{{ '@forge.hub.link.rekey'|trans({software: seat.license.software.name}) }}</p>
             {% else %}
-            <p>{{ '@forge.hub.link.no_seat'|trans }}</p>
+            <p class="forge-meta">{{ '@forge.hub.link.no_seat'|trans }}</p>
             {% endif %}
         {% endif %}
     </div>

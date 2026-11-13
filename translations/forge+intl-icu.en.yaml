@@ -49,10 +49,23 @@ hub:
     confirm: "The code your editor shows:"
     link: "Link this editor"
     rekey: "A new key is made for your seat of {software}: the key it had before stops working."
-    no_seat: "You hold no licence yet: buy one beside, then come back to this page and link the editor."
+    no_seat: "You hold no licence yet: link the editor all the same to buy from it, or buy one beside first."
     after_paying: "The shop opens in a new tab. Once paid, come back to this page and link the editor."
     done: "Linked"
-    done_text: "Your editor has received your key: you can close this page and go back to Unity."
+    done_text: "Your editor is linked to your account: you can close this page and go back to Unity."
+  returned:
+    saved:
+      title: "Payment method saved"
+      text: "You can close this page and go back to Unity: your purchases are now one click away."
+    paid:
+      title: "Paid"
+      text: "Your bank confirmed the payment. Go back to Unity: the package installs itself."
+    pending:
+      title: "Being confirmed"
+      text: "Your bank is still confirming the payment. Go back to Unity: the package installs itself once it is paid."
+    refused:
+      title: "Payment refused"
+      text: "The payment did not go through and nothing was charged. Go back to Unity to try again, or with another payment method."
 offer:
   seats: "{count, plural, one {# seat} other {# seats}}"
   duration: "{months} months"

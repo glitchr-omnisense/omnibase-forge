@@ -1,0 +1,15 @@
+{#
+ # Back from a payment provider's page, in the browser a hub client opened: what happened, and
+ # back to Unity. Variables: state (saved, paid, pending, requires_action, refused).
+ #}
+{% extends '@Forge/client/layout.html.twig' %}
+
+{% block forge_title %}{{ ('@forge.hub.returned.' ~ (state == 'requires_action' ? 'pending' : state) ~ '.title')|trans }}{% endblock %}
+{% block forge_class %}forge-hub-returned{% endblock %}
+
+{% block forge_body %}
+<div class="forge-main">
+    <p class="forge-badge{{ state in ['saved', 'paid'] ? ' is-free' }}">{{ ('@forge.hub.returned.' ~ (state == 'requires_action' ? 'pending' : state) ~ '.title')|trans }}</p>
+    <p>{{ ('@forge.hub.returned.' ~ (state == 'requires_action' ? 'pending' : state) ~ '.text')|trans }}</p>
+</div>
+{% endblock %}

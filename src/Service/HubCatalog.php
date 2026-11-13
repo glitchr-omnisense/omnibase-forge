@@ -33,6 +33,7 @@ class HubCatalog
         private readonly UrlHelper $urlHelper,
         #[Autowire('%forge.hub%')] private readonly array $hub = [],
         private readonly ?LicenseToken $tokens = null,
+        private readonly ?HubPayments $payments = null,
     ) {
     }
 
@@ -58,10 +59,16 @@ class HubCatalog
             // manifest waits on omnihub's HubManifest taking "licenses" and the forge's licensing).
             'sources' => [(new Source(Source::UPM, $registry, ($this->hub['name'] ?? 'Forge') ?: null, $scopes, $this->urls->generate('forge_hub_catalog', [], UrlGeneratorInterface::ABSOLUTE_URL)))->toArray()],
             'games' => $this->urls->generate('forge_hub_catalog', [], UrlGeneratorInterface::ABSOLUTE_URL),
+            // The device flow; and, with a payment gateway set, the one-click purchase (plan item 16):
+            // the price to confirm, the purchase, the saved payment methods (docs/hub.md).
             'checkout' => ($this->hub['checkout'] ?? true) ? [
                 'device' => $this->urls->generate('forge_hub_device', [], UrlGeneratorInterface::ABSOLUTE_URL),
                 'token' => $this->urls->generate('forge_hub_token', [], UrlGeneratorInterface::ABSOLUTE_URL),
-            ] : null,
+            ] + ($this->payments?->isEnabled() ? [
+                'quote' => $this->urls->generate('forge_hub_quote', [], UrlGeneratorInterface::ABSOLUTE_URL),
+                'purchases' => $this->urls->generate('forge_hub_purchase', [], UrlGeneratorInterface::ABSOLUTE_URL),
+                'methods' => $this->urls->generate('forge_hub_payment_methods', [], UrlGeneratorInterface::ABSOLUTE_URL),
+            ] : []) : null,
             // The key's licences and their machines (licenses), and the licence API a machine
             // activates and releases itself through (docs/licensing.md).
             'licenses' => ($this->hub['checkout'] ?? true) ? [
