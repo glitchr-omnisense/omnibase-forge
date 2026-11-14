@@ -30,6 +30,9 @@
 - Forge Store 1.7.0 and Forge Hub 1.5.0 get `422 consent_required` on a purchase while `forge.hub.consent_required`
   is on ("The forge refused: consent_required."): their users buy on the site until the clients send the
   statements, or the host turns the requirement off.
+- The bundle's classes extend omnibridge/symfony's `AbstractBaseBundle` and `AbstractBaseExtension` by their names
+  (`Omnibridge\Symfony\Omnibase\Bundle\*`), no longer by the former `Base\Bundle\*` ones, which omnisense/omnibase
+  keeps only as aliases until 6.0. The same classes: nothing changes for an application.
 
 ### Schema
 
