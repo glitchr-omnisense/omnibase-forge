@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-11-14
+
+### Changed
+
+- Accepts omnisense/omnibase 6.0 and omnibridge/symfony 2.0 beside 5.1 and 1.1 (`^5.1 || ^6.0`, `^1.1 || ^2.0`).
+  Nothing else needed: the bundle uses nothing 6.0 removes. On 6.0 it installs with omnibase/marketplace 1.1.2 and
+  omnibase/admin 1.0.3, which accept it too.
+
 ## [1.2.1] - 2026-11-14
 
 ### Fixed
