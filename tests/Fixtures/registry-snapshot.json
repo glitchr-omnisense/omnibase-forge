@@ -247,7 +247,7 @@
             "WWW-Authenticate": null,
             "Content-Disposition": null
         },
-        "body": "{\"version\":1,\"name\":\"Forge\",\"sources\":[{\"name\":\"Forge\",\"type\":\"upm\",\"url\":\"https://localhost/upm\",\"scopes\":[\"<scopes>\"],\"catalog\":\"https://localhost/upm/-/hub/catalog.json\"}],\"games\":\"https://localhost/upm/-/hub/catalog.json\",\"checkout\":{\"device\":\"https://localhost/upm/-/hub/device\",\"token\":\"https://localhost/upm/-/hub/token\",\"quote\":\"https://localhost/upm/-/hub/quote\",\"purchases\":\"https://localhost/upm/-/hub/purchases\",\"methods\":\"https://localhost/upm/-/hub/payment-methods\"},\"licenses\":{\"list\":\"https://localhost/upm/-/hub/licenses\",\"activate\":\"https://localhost/api/licenses/activate\",\"release\":\"https://localhost/api/licenses/release\"}}"
+        "body": "{\"version\":1,\"name\":\"Forge\",\"sources\":[{\"name\":\"Forge\",\"type\":\"upm\",\"url\":\"https://localhost/upm\",\"scopes\":[\"<scopes>\"],\"catalog\":\"https://localhost/upm/-/hub/catalog.json\"}],\"games\":\"https://localhost/upm/-/hub/catalog.json\",\"checkout\":{\"device\":\"https://localhost/upm/-/hub/device\",\"token\":\"https://localhost/upm/-/hub/token\",\"quote\":\"https://localhost/upm/-/hub/quote\",\"purchases\":\"https://localhost/upm/-/hub/purchases\",\"methods\":\"https://localhost/upm/-/hub/payment-methods\",\"account_tokens\":\"https://localhost/upm/-/hub/account-tokens\"},\"licenses\":{\"list\":\"https://localhost/upm/-/hub/licenses\",\"activate\":\"https://localhost/api/licenses/activate\",\"release\":\"https://localhost/api/licenses/release\"}}"
     },
     "ustar of a fixed tree": "37c269b23960a961f4f13a7c8e547f093aa2a4ad"
 }

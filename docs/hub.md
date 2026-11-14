@@ -340,9 +340,11 @@ With `marketplace.consent.businesses: skip`, a buyer with a confirmed VAT number
 ```
 
 - `locale` (optional query): the language the texts are worded in, `[a-z]{2,3}` with an optional
-  region (`fr`, `en_GB`); without it, the request's (the host's locale resolution; the clients
-  send no `Accept-Language` today, so the host's default). A language the host has no text for
-  falls back as its catalogues do; `consent.locale` says which was asked.
+  region (`fr`, `en_GB`). Without it, the host's own language (`kernel.default_locale`): the
+  clients send no `Accept-Language` and no session, so nothing else says one - never a fixed
+  English (since 1.2.1, with omnibase/marketplace 1.1.1). A language the host has no text for falls
+  back as its catalogues do; `consent.locale` is the language the texts are in (`en_GB` asked:
+  `en`), which the purchase sends back.
 - `statements`: in the order to show them; `text` is shown as is (plain text, no markup), one box
   each, **none ticked beforehand**; `url`, when present, is linked beside the text (`terms`).
 - `version`: the SHA-256 of the statements' ids, their texts' hashes and the terms' version

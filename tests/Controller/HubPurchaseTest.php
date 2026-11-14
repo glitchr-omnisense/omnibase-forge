@@ -456,19 +456,23 @@ class HubPurchaseTest extends ForgeWebTestCase
         $this->json('POST', '/upm/-/hub/payment-methods', $auth, null, 201);
         $this->card = 'paid';
 
-        // The quote: the texts to show, their version, required. A licence is digital content supplied at once.
+        // The quote: the texts to show, their version, required. A licence is digital content supplied at once;
+        // the terms come first when the host names them (marketplace.consent.terms_route).
         $consent = $this->json('GET', '/upm/-/hub/quote?offer='.$this->offer->getId().'&locale=en', $auth)['consent'];
         $text = static::getContainer()->get(TranslatorInterface::class)->trans('@marketplace.consent.immediate_supply', [], null, 'en');
+        $terms = null !== static::getContainer()->get(Consents::class)->termsUrl();
         self::assertTrue($consent['required']);
         self::assertSame('en', $consent['locale']);
-        self::assertSame([['id' => 'immediate_supply', 'text' => $text, 'hash' => hash('sha256', $text)]], $consent['statements']);
+        self::assertSame($terms ? ['terms', 'immediate_supply'] : ['immediate_supply'], array_column($consent['statements'], 'id'));
+        self::assertSame(['id' => 'immediate_supply', 'text' => $text, 'hash' => hash('sha256', $text)], end($consent['statements']));
         self::assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $consent['version']);
         $buy = fn (?array $sent, int $status) => $this->json('POST', '/upm/-/hub/purchases', $auth + ['HTTP_IDEMPOTENCY_KEY' => 'buy-'.bin2hex(random_bytes(8))], ['offer' => $this->offer->getId(), 'price' => 4900, 'currency' => 'EUR', 'consent' => $sent], $status);
 
         // Without its statements (a client that does not know them), one not true, or another version: refused, nothing charged.
         $none = $buy(null, 422);
-        self::assertSame(['consent_required', ['immediate_supply']], [$none['error'], $none['missing']]);
-        self::assertSame('immediate_supply', $none['consent']['statements'][0]['id'], 'the texts to show come with the refusal');
+        self::assertSame(['consent_required', array_column($consent['statements'], 'id')], [$none['error'], $none['missing']]);
+        // The texts to show come with the refusal - in the host's language: a purchase without consent names none.
+        self::assertSame(array_column($consent['statements'], 'id'), array_column($none['consent']['statements'], 'id'), 'the texts to show come with the refusal');
         $declined = $buy(['immediate_supply' => false] + self::accepted($consent), 422);
         self::assertSame(['consent_required', ['immediate_supply']], [$declined['error'], $declined['missing']]);
         $changed = $buy(['version' => str_repeat('0', 64)] + self::accepted($consent), 409);
@@ -483,13 +487,43 @@ class HubPurchaseTest extends ForgeWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
         $order = $em->getRepository(Order::class)->findOneBy(['reference' => $bought['order']]);
-        $records = $em->getRepository(Consent::class)->findBy(['order' => $order]);
-        self::assertCount(1, $records);
-        self::assertSame(['immediate_supply', $text, hash('sha256', $text), 'en', Consent::HUB], [$records[0]->getStatement(), $records[0]->getText(), $records[0]->getHash(), $records[0]->getLocale(), $records[0]->getChannel()]);
+        $records = $em->getRepository(Consent::class)->findBy(['order' => $order], ['id' => 'ASC']);
+        self::assertSame(array_column($consent['statements'], 'id'), array_map(static fn (Consent $c) => $c->getStatement(), $records));
+        $last = end($records);
+        self::assertSame(['immediate_supply', $text, hash('sha256', $text), 'en', Consent::HUB], [$last->getStatement(), $last->getText(), $last->getHash(), $last->getLocale(), $last->getChannel()]);
         $mails = array_values(array_filter(self::getMailerMessages(), static fn ($m) => $m instanceof Email && str_contains((string) $m->getSubject(), $bought['order'])));
         self::assertCount(1, $mails, 'the order\'s confirmation, the durable medium');
         self::assertSame($this->buyer->getEmail(), $mails[0]->getTo()[0]->getAddress());
         self::assertStringContainsString($text, html_entity_decode((string) $mails[0]->getHtmlBody(), \ENT_QUOTES));
+    }
+
+    public function testTheStatementsAreInTheLanguageAskedElseTheHostsAndRecordedSo(): void
+    {
+        $auth = ['HTTP_AUTHORIZATION' => 'Bearer '.$this->link()];
+        $this->json('POST', '/upm/-/hub/payment-methods', $auth, null, 201);
+        $this->card = 'paid';
+        $translator = static::getContainer()->get(TranslatorInterface::class);
+        $french = $translator->trans('@marketplace.consent.immediate_supply', [], null, 'fr');
+        self::assertNotSame($translator->trans('@marketplace.consent.immediate_supply', [], null, 'en'), $french, 'two wordings to tell apart');
+
+        // ?locale=fr: French texts, said French; bought with them: recorded in French, confirmed in French.
+        $consent = $this->json('GET', '/upm/-/hub/quote?offer='.$this->offer->getId().'&locale=fr', $auth)['consent'];
+        self::assertSame(['fr', $french], [$consent['locale'], end($consent['statements'])['text']]);
+        $bought = $this->json('POST', '/upm/-/hub/purchases', $auth + ['HTTP_IDEMPOTENCY_KEY' => 'buy-'.bin2hex(random_bytes(8))], ['offer' => $this->offer->getId(), 'price' => 4900, 'currency' => 'EUR', 'consent' => self::accepted($consent)], 201);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $order = $em->getRepository(Order::class)->findOneBy(['reference' => $bought['order']]);
+        foreach ($em->getRepository(Consent::class)->findBy(['order' => $order]) as $record) {
+            self::assertSame(['fr', $translator->trans('@marketplace.consent.'.$record->getStatement(), [], null, 'fr')], [$record->getLocale(), $record->getText()], $record->getStatement());
+        }
+        $mails = array_values(array_filter(self::getMailerMessages(), static fn ($m) => $m instanceof Email && str_contains((string) $m->getSubject(), $bought['order'])));
+        self::assertStringContainsString($french, html_entity_decode((string) $mails[0]->getHtmlBody(), \ENT_QUOTES));
+
+        // No ?locale= (the clients send no Accept-Language either): the host's own language (kernel.default_locale), never a fixed one.
+        $default = substr((string) static::getContainer()->getParameter('kernel.default_locale'), 0, 2);
+        $unasked = $this->json('GET', '/upm/-/hub/quote?offer='.$this->offer->getId(), $auth)['consent'];
+        self::assertSame($default, substr($unasked['locale'], 0, 2));
+        self::assertSame($translator->trans('@marketplace.consent.immediate_supply', [], null, $unasked['locale']), end($unasked['statements'])['text']);
     }
 
     public function testWithTheRequirementOffAnOlderClientBuysAsBeforeAndTheTermsAreAskedWhenTheHostNamesThem(): void

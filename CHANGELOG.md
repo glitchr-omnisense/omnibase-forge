@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-14
+
+### Fixed
+
+- The one-click purchases' statements in the language asked: with omnibase/marketplace 1.1.1 (now required), the
+  quote's `?locale=fr` gives, records and confirms the French texts, and without `?locale=` the texts are in the
+  host's own language (`kernel.default_locale`: the clients send no Accept-Language), no longer always English.
+  `consent.locale` is the language the texts are in (docs/hub.md).
+- `HubPurchaseTest` passes inside a host that names its terms (`marketplace.consent.terms_route`): the statements
+  expected are the host's own (`terms` first when it names them). New
+  `testTheStatementsAreInTheLanguageAskedElseTheHostsAndRecordedSo`.
+- `RegistrySnapshotTest`'s recorded hub manifest has `checkout.account_tokens` (added in 1.1.0): the test failed in
+  the bundle's own harness too since 1.1.0.
+
+### Changed
+
+- Requires `omnibase/marketplace` ^1.1.1.
+
 ## [1.2.0] - 2026-11-14
 
 ### Added
