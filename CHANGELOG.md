@@ -23,6 +23,23 @@
     (`Withdrawal::SERVICE`) by default: the shop's checkout asks the matching statement for them too.
   - `HubPurchaseTest`: the statements in the quote, the purchase without them, with one not true, another version,
     accepted (the record, the e-mail), the requirement off, the terms when the host names them.
+- A purchase's key again (docs/hub.md, "A purchase's key again"): `POST /upm/-/hub/purchases/<id>/key`, with the
+  account's token, owner only, gives a client that lost the answer carrying the key a **new key of the same seat**;
+  the seat's previous key stops working at once. Keys are kept as SHA-256 only (`LicenseSeat`), so the key handed
+  over cannot be given twice; nothing is stored in clear or encrypted. `404 unknown_purchase` (another account's
+  purchase too), `409 purchase_not_paid` (with `status`), `409 license_unavailable`, `409 purchase_in_progress`.
+  A paid purchase's body says `"key_handed": true` once its key went out. `HubPurchases::reissueKey()`.
+- Linked editors and signing out (docs/hub.md): `GET /upm/-/hub/account-tokens` (each token of the account: `id`,
+  `prefix`, `created`, `last_used`, `current`), `DELETE /upm/-/hub/account-tokens/current` (this editor signed out),
+  `DELETE /upm/-/hub/account-tokens/{id}` (another one; `404 unknown_account_token`). The manifest's `checkout`
+  names `account_tokens`. The account page (`/compte/licences`) lists the linked editors and unlinks one
+  (`forge_account_hub_token_revoke`). `HubAccountController`, `HubAccounts::token()`, `tokensOf()`, `revoke()`;
+  the request's `_forge_hub_token` beside `_forge_hub_user`.
+- `GET /upm/-/hub/licenses` takes the account's token too (`Bearer gla_...`): the licences the account holds a seat
+  of, valid ones, with the machines of its seats - the same answer as a seat's key. A token that is not this
+  forge's: 401 with the account's realm. The account's token still opens no package.
+- `HubAccountTokensTest`; `HubPurchaseTest`: a key lost then asked again (the lost one refused by the registry, the
+  new one taken, owner only, a licence revoked), a purchase not paid yet.
 
 ### Changed
 

@@ -5,6 +5,7 @@ namespace Base\Forge\Service;
 use Base\Entity\User;
 use Base\Forge\Entity\HubPurchase;
 use Base\Forge\Entity\License;
+use Base\Forge\Entity\LicenseSeat;
 use Base\Forge\Entity\Product\LicenseOffer;
 use Base\Forge\EventListener\HubPurchaseCharges;
 use Base\Forge\Exception\HubPurchaseException;
@@ -53,7 +54,9 @@ use Symfony\Component\Lock\LockFactory;
  * transaction. The bank asking for its buyer (3-D Secure): requires_action, with the bank's page,
  * which the client opens; the provider's webhook (marketplace_payment_webhook) then confirms the
  * order and the licence is issued; refresh() asks the provider meanwhile, as the shop's return
- * page does. Once paid, the client receives the licence key once (handKey()), and installs.
+ * page does. Once paid, the client receives the licence key once (handKey()), and installs; a
+ * client that lost that answer asks for a new key of the same seat (reissueKey()): only each key's
+ * hash is kept, so the key handed over cannot be given again.
  */
 class HubPurchases
 {
@@ -254,18 +257,53 @@ class HubPurchases
      */
     public function handKey(HubPurchase $purchase): ?array
     {
-        if (HubPurchase::PAID !== $purchase->getStatus() || null !== $purchase->getKeyHandedAt() || null === $purchase->getOrderReference()) {
+        if (HubPurchase::PAID !== $purchase->getStatus() || null !== $purchase->getKeyHandedAt()) {
             return null;
         }
-        $license = $this->entityManager->getRepository(License::class)->findOneBy(['orderReference' => $purchase->getOrderReference()], ['id' => 'ASC']);
-        $seat = $license instanceof License ? $license->findSeatOf($purchase->getUser()) : null;
+        $seat = $this->seatOf($purchase);
         if (null === $seat) {
             return null;
         }
-        $purchase->markKeyHanded(new \DateTimeImmutable());
-        $key = $this->issuer->rekey($seat); // flushes
 
-        return ['key' => $key, 'email' => $seat->getEmail(), 'registry' => $this->registry->url()];
+        return $this->hand($purchase, $seat);
+    }
+
+    /**
+     * A new key of the buyer's seat on a paid purchase's licence, for a client that lost the answer
+     * carrying the first one (docs/hub.md, "A purchase's key again"). Only each key's SHA-256 is
+     * stored (LicenseSeat), so the key handed over cannot be read again: the seat gets a new one
+     * and its previous key stops working at once - what the device flow and the account page's
+     * "new key" do too. Owner only; under the user's purchase lock, beside buy(). The key is
+     * returned, never logged.
+     *
+     * @return array{key: string, email: string, registry: string}
+     *
+     * @throws HubPurchaseException unknown_purchase (404), purchase_not_paid (409), license_unavailable (409), purchase_in_progress (409)
+     */
+    public function reissueKey(User $user, string $token): array
+    {
+        $purchase = $this->find($user, $token) ?? throw new HubPurchaseException(HubPurchaseException::UNKNOWN_PURCHASE, 404);
+        $lock = $this->locks->createLock('forge-hub-purchase-'.$user->getId(), 120);
+        for ($waited = 0.0; !$lock->acquire(false); $waited += 0.1) {
+            if ($waited >= $this->lockWait) {
+                throw new HubPurchaseException(HubPurchaseException::PURCHASE_IN_PROGRESS, 409);
+            }
+            usleep(100000);
+        }
+        try {
+            $this->refresh($purchase);
+            if (HubPurchase::PAID !== $purchase->getStatus()) {
+                throw new HubPurchaseException(HubPurchaseException::PURCHASE_NOT_PAID, 409, ['status' => $purchase->getStatus()]);
+            }
+            $seat = $this->seatOf($purchase);
+            if (null === $seat || !$seat->getLicense()?->isValid()) {
+                throw new HubPurchaseException(HubPurchaseException::LICENSE_UNAVAILABLE, 409);
+            }
+
+            return $this->hand($purchase, $seat);
+        } finally {
+            $lock->release();
+        }
     }
 
     /** A hub purchase's order paid (the webhook, the return page, or at once): the purchase is. */
@@ -290,6 +328,30 @@ class HubPurchases
             $this->refused($purchase, $event->order, $event->transaction->getDetails()['message'] ?? null);
             $this->entityManager->flush();
         }
+    }
+
+    /** The buyer's seat on the licence the purchase's order issued, or null (not issued, seat taken back). */
+    private function seatOf(HubPurchase $purchase): ?LicenseSeat
+    {
+        if (null === $purchase->getOrderReference()) {
+            return null;
+        }
+        $license = $this->entityManager->getRepository(License::class)->findOneBy(['orderReference' => $purchase->getOrderReference()], ['id' => 'ASC']);
+
+        return $license instanceof License ? $license->findSeatOf($purchase->getUser()) : null;
+    }
+
+    /**
+     * A new key of the seat, the purchase marked as having handed one. Flushed.
+     *
+     * @return array{key: string, email: string, registry: string}
+     */
+    private function hand(HubPurchase $purchase, LicenseSeat $seat): array
+    {
+        $purchase->markKeyHanded(new \DateTimeImmutable());
+        $key = $this->issuer->rekey($seat); // flushes
+
+        return ['key' => $key, 'email' => $seat->getEmail(), 'registry' => $this->registry->url()];
     }
 
     public function find(User $user, string $token): ?HubPurchase
@@ -328,7 +390,10 @@ class HubPurchases
             'package' => $software?->getUpmName(),
             'url' => HubPurchase::REQUIRES_ACTION === $purchase->getStatus() ? $purchase->getRedirectUrl() : null,
             'reason' => HubPurchase::REFUSED === $purchase->getStatus() ? $purchase->getReason() : null,
-        ], static fn ($value) => null !== $value) + ($key ?? []);
+        ], static fn ($value) => null !== $value) + ($key ?? []) + array_filter([
+            // Its key went out (since 1.1.0): an answer without one asks for it again (reissueKey()).
+            'key_handed' => HubPurchase::PAID === $purchase->getStatus() && null !== $purchase->getKeyHandedAt() ? true : null,
+        ], static fn ($value) => null !== $value);
     }
 
     /**

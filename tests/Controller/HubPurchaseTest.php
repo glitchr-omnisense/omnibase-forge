@@ -9,6 +9,7 @@ use Base\Forge\Entity\PaymentCustomer;
 use Base\Forge\Entity\Product\LicenseOffer;
 use Base\Forge\Entity\Software;
 use Base\Forge\EventListener\HubPurchaseCharges;
+use Base\Forge\Enum\LicenseStatus;
 use Base\Forge\Enum\Pricing;
 use Base\Forge\Enum\SoftwareKind;
 use Base\Forge\Exception\HubPurchaseException;
@@ -202,6 +203,74 @@ class HubPurchaseTest extends ForgeWebTestCase
         self::assertMatchesRegularExpression('/^glk_/', $bought['key'], 'the licence, issued as the order was confirmed');
         self::assertCount(1, $this->sentAll('POST', '/v1/payment_intents'));
         self::assertSame([], $this->sentAll('POST', '/v1/payment_intents/pi_forge/confirm'), 'no bank page');
+    }
+
+    public function testAKeyLostWithItsAnswerIsAskedAgainAsANewKeyOfTheSameSeat(): void
+    {
+        $auth = ['HTTP_AUTHORIZATION' => 'Bearer '.$this->link()];
+        $this->json('POST', '/upm/-/hub/payment-methods', $auth, null, 201);
+        $this->card = 'paid';
+        $idempotency = 'buy-'.bin2hex(random_bytes(8));
+        $body = ['offer' => $this->offer->getId(), 'price' => 4900, 'currency' => 'EUR'];
+
+        // Paid at once: the key in the answer - which the client never received.
+        $lost = $this->json('POST', '/upm/-/hub/purchases', $auth + ['HTTP_IDEMPOTENCY_KEY' => $idempotency], $body, 201);
+        self::assertSame(['paid', true], [$lost['status'], $lost['key_handed']]);
+        self::assertSame(200, $this->request('GET', '/upm/-/hub/catalog.json', ['HTTP_AUTHORIZATION' => 'Bearer '.$lost['key']])->getStatusCode());
+
+        // The client sends the purchase again with its key: the purchase, its id, its key gone out - no key, nothing charged.
+        $replayed = $this->json('POST', '/upm/-/hub/purchases', $auth + ['HTTP_IDEMPOTENCY_KEY' => $idempotency], $body);
+        self::assertSame([$lost['id'], 'paid', true], [$replayed['id'], $replayed['status'], $replayed['key_handed']]);
+        self::assertArrayNotHasKey('key', $replayed);
+        self::assertCount(1, $this->sentAll('POST', '/v1/payment_intents'), 'charged once');
+
+        // Its key asked again: a new key of the same seat; the one lost stops working.
+        $again = $this->json('POST', '/upm/-/hub/purchases/'.$lost['id'].'/key', $auth);
+        self::assertSame([$lost['id'], 'paid', $this->package->getUpmName(), true], [$again['id'], $again['status'], $again['package'], $again['key_handed']]);
+        self::assertMatchesRegularExpression('/^glk_/', $again['key']);
+        self::assertNotSame($lost['key'], $again['key']);
+        self::assertSame([$this->buyer->getEmail(), 'https://localhost/upm'], [$again['email'], $again['registry']]);
+        self::assertSame(200, $this->request('GET', '/upm/-/hub/catalog.json', ['HTTP_AUTHORIZATION' => 'Bearer '.$again['key']])->getStatusCode(), 'the new key opens the registry');
+        self::assertSame(401, $this->request('GET', '/upm/-/hub/catalog.json', ['HTTP_AUTHORIZATION' => 'Bearer '.$lost['key']])->getStatusCode(), 'the lost one no longer does');
+        self::assertArrayNotHasKey('key', $this->json('GET', '/upm/-/hub/purchases/'.$lost['id'], $auth), 'the status hands none');
+        $logs = static::getContainer()->getParameter('kernel.logs_dir');
+        foreach (glob($logs.'/*.log') ?: [] as $log) {
+            self::assertStringNotContainsString($again['key'], (string) file_get_contents($log), 'no key in '.basename($log));
+        }
+
+        // Its owner only: another account is told no such purchase, and the seat's key is left alone.
+        $this->buyer = $this->user('purchase-other');
+        $this->em->flush();
+        $other = ['HTTP_AUTHORIZATION' => 'Bearer '.$this->link()];
+        self::assertSame(['error' => 'unknown_purchase'], $this->json('POST', '/upm/-/hub/purchases/'.$lost['id'].'/key', $other, null, 404));
+        self::assertSame(['error' => 'unknown_purchase'], $this->json('POST', '/upm/-/hub/purchases/'.str_repeat('0', 32).'/key', $auth, null, 404));
+        self::assertSame(200, $this->request('GET', '/upm/-/hub/catalog.json', ['HTTP_AUTHORIZATION' => 'Bearer '.$again['key']])->getStatusCode(), 'still the key');
+
+        // A licence no longer valid: no key made.
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->getRepository(License::class)->findOneBy(['orderReference' => $lost['order']])->setStatus(LicenseStatus::REVOKED);
+        $em->flush();
+        self::assertSame(['error' => 'license_unavailable'], $this->json('POST', '/upm/-/hub/purchases/'.$lost['id'].'/key', $auth, null, 409));
+    }
+
+    public function testAPurchaseNotPaidYetHasNoKeyToAskAgain(): void
+    {
+        $auth = ['HTTP_AUTHORIZATION' => 'Bearer '.$this->link()];
+        $this->json('POST', '/upm/-/hub/payment-methods', $auth, null, 201);
+
+        // The bank asks its buyer (3-D Secure): not paid yet.
+        $waiting = $this->json('POST', '/upm/-/hub/purchases', $auth + ['HTTP_IDEMPOTENCY_KEY' => 'buy-'.bin2hex(random_bytes(8))], ['offer' => $this->offer->getId(), 'price' => 4900, 'currency' => 'EUR'], 201);
+        self::assertSame('requires_action', $waiting['status']);
+        self::assertArrayNotHasKey('key_handed', $waiting);
+        self::assertSame(['error' => 'purchase_not_paid', 'status' => 'requires_action'], $this->json('POST', '/upm/-/hub/purchases/'.$waiting['id'].'/key', $auth, null, 409));
+
+        // Paid meanwhile at the bank: asked, the provider says so, and the first ask hands the key, the status then none.
+        $this->intentStatus = 'succeeded';
+        $first = $this->json('POST', '/upm/-/hub/purchases/'.$waiting['id'].'/key', $auth);
+        self::assertSame(['paid', true], [$first['status'], $first['key_handed']]);
+        self::assertMatchesRegularExpression('/^glk_/', $first['key']);
+        self::assertArrayNotHasKey('key', $this->json('GET', '/upm/-/hub/purchases/'.$waiting['id'], $auth));
+        self::assertSame(401, $this->request('POST', '/upm/-/hub/purchases/'.$waiting['id'].'/key')->getStatusCode(), 'the account\'s token is needed');
     }
 
     public function testARefusedCardChargesNothingAndLeavesNoCart(): void

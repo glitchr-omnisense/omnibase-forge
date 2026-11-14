@@ -34,7 +34,8 @@ be bought.
     "token": "https://glitchr.io/upm/-/hub/token",
     "quote": "https://glitchr.io/upm/-/hub/quote",
     "purchases": "https://glitchr.io/upm/-/hub/purchases",
-    "methods": "https://glitchr.io/upm/-/hub/payment-methods"
+    "methods": "https://glitchr.io/upm/-/hub/payment-methods",
+    "account_tokens": "https://glitchr.io/upm/-/hub/account-tokens"
   },
   "licenses": {
     "list": "https://glitchr.io/upm/-/hub/licenses",
@@ -59,7 +60,9 @@ be bought.
 - `checkout`: present when the hub sells. A client shows "Buy" only for a
   source whose manifest has it - a static hub (a copied template on GitHub
   Pages) never does. `quote`, `purchases` and `methods` are there when the
-  forge takes one-click purchases (`forge.hub.payment_gateway`, below).
+  forge takes one-click purchases (`forge.hub.payment_gateway`, below);
+  `account_tokens` (since 1.1.0) whenever it sells: the editors linked to the
+  account, and signing out (below).
 - `licensing`: present once the forge has a signing key
   (`bin/console forge:license:keypair`). Data only, never code:
   - `publicKey`: the Ed25519 key the licence tokens are signed with. Forge
@@ -131,11 +134,42 @@ user without a licence: it is what the editor buys with and manages the saved
 payment methods with (below), as `Authorization: Bearer gla_...`. The client
 keeps it in the user's folder (the OS keychain), never in a project; only its
 SHA-256 is stored here (`Entity\HubToken`). It opens no package: the registry
-still takes the licence key.
+still takes the licence key. It reads the account: its payment methods and
+purchases (below), its licences (`/hub/licenses`, below).
+
+### Linked editors and signing out
+
+Since 1.1.0. Each link (a device flow approved) is a token of its own: Forge
+Store and Forge Hub each have theirs, and linking again gives a new one without
+revoking the others. With any of them, as `Authorization: Bearer gla_...` (JSON,
+`Cache-Control: no-store`; without a token of this forge, 401 `{"error":
+"unauthorized"}` with `WWW-Authenticate: Bearer realm="Forge account"`):
+
+| Request | Answer |
+|---|---|
+| `GET /upm/-/hub/account-tokens` | `{"tokens": [{"id": 12, "prefix": "gla_ABCD-EFG", "created": "2026-11-14T09:30:00+00:00", "last_used": "2026-11-14T09:30:00+00:00", "current": true}]}` - every token of the account, newest first |
+| `DELETE /upm/-/hub/account-tokens/current` | 204: the token sent is revoked - signing this editor out. It answers 401 from then on; the client forgets it |
+| `DELETE /upm/-/hub/account-tokens/{id}` | 204: that token of the account is revoked (another editor signed out from this one); 404 `{"error": "unknown_account_token"}` for an id that is not one of the account's (nothing revoked) |
+
+- `prefix`: the token's first 12 characters, the only part of it kept in clear:
+  a client tells its own by `current`, never by comparing a token.
+- `last_used`: refreshed at most once a day; null for a token never used after
+  the link. `created` and `last_used` are ISO 8601, UTC.
+- No name per token: the forge does not know which application or machine holds
+  it. A client shows the prefix and the dates.
+- Revoking a token signs out what holds it, nothing more: the licence keys
+  already handed over keep opening the registry (a seat's key is changed on the
+  account page, or by a purchase's key again, below), saved payment methods and
+  purchases stay the account's.
+
+The account's page on the site (`/compte/licences`, "Linked editors") lists the
+same tokens and revokes them, for an editor that cannot sign itself out (a lost
+machine).
 
 ## Licences: `GET /upm/-/hub/licenses`
 
-With the key as a Bearer: the holder's e-mail and each valid licence - its
+With the key as a Bearer (or HTTP Basic with the seat's e-mail, as the registry
+takes it): the holder's e-mail and each valid licence - its
 software (`slug`, which the licence API asks for, its name, its UPM name, its
 page), status, expiry, updates, seats, machines per seat, and the machines
 of that holder's seat, each with the SHA-256 of its identifier (`machine`),
@@ -143,6 +177,20 @@ which a client compares with its own to say "this machine". A client
 activates and releases itself through the addresses the manifest lists
 under `licenses` (`/api/licenses/activate`, `/api/licenses/release`, see
 [licensing.md](licensing.md)).
+
+Since 1.1.0, with the account's token as a Bearer (`gla_...`) as well: the same
+answer, `{"email", "licenses": [...]}`, for the licences the account holds a
+seat of (given to the account, or to its e-mail once verified), valid ones only,
+`email` the account's, and `machines` those of the account's seat on each. A
+client linked without a licence lists what it bought in one click this way. It
+still opens no package: the registry, the catalogue's `installable` and the
+licence API take the licence key only.
+
+| Status | Body | Meaning |
+|---|---|---|
+| 200 | `{"email", "licenses"}` | `licenses: []` when the account holds none |
+| 401 | `{"error": "A licence key is needed."}`, `WWW-Authenticate: Bearer realm="Glitch Art packages"` | no credential, or a licence key that is not valid |
+| 401 | `{"error": "unauthorized"}`, `WWW-Authenticate: Bearer realm="Forge account"` | a `gla_` token that is not (or no longer) one of this forge's |
 
 ## Buying in one click
 
@@ -185,7 +233,7 @@ Changing a method is adding the new one and removing the old one.
 
 | Status | Body | Meaning |
 |---|---|---|
-| 201 | `{"id", "status": "paid", "order", "price", "currency", "software", "package", "key", "email", "registry"}` | charged; the licence is issued and its key handed over (once) |
+| 201 | `{"id", "status": "paid", "order", "price", "currency", "software", "package", "key", "email", "registry", "key_handed": true}` | charged; the licence is issued and its key handed over (once) |
 | 201 | `{"id", "status": "requires_action", "url", ...}` | the bank asks its buyer (3-D Secure): open `url`; the bank sends them back to `/hub/purchases/<id>/done` |
 | 201 | `{"id", "status": "pending", ...}` | the provider has not said yet: poll |
 | 200 | the same purchase, header `Idempotent-Replayed: true` | the same key again: nothing charged again |
@@ -207,6 +255,42 @@ Changing a method is adding the new one and removing the old one.
    device flow): the client writes it into `~/.upmconfig.toml`, installs
    `package` from the registry, and activates through `licenses.activate` - a
    v2 token bound to `registry` and `package` ([licensing.md](licensing.md)).
+   Since 1.1.0 a paid purchase's body says `"key_handed": true` once its key
+   went out (absent before): a later answer without `key` and with
+   `key_handed` means the key is to be asked again (below).
+
+### A purchase's key again
+
+Since 1.1.0. The key is handed over once, and the forge cannot give the same
+key twice: it keeps only each key's SHA-256 (`LicenseSeat`), never the key, in
+clear or encrypted. A client that lost the answer carrying it (a timeout, a
+crash before it wrote `~/.upmconfig.toml`) asks for **a new key of the same
+seat**; the seat's previous key stops working at once.
+
+`POST /upm/-/hub/purchases/<id>/key`, with the account's token, no body:
+
+| Status | Body | Meaning |
+|---|---|---|
+| 200 | the purchase's body, with `key`, `email`, `registry` and `"key_handed": true` | a new key of the account's seat on the purchase's licence: write it into `~/.upmconfig.toml` in place of any other key of this registry |
+| 404 | `{"error": "unknown_purchase"}` | no such purchase, or not one of this account's: nothing changes |
+| 409 | `{"error": "purchase_not_paid", "status"}` | not paid (yet): poll `GET /upm/-/hub/purchases/<id>`, which hands the key the first time |
+| 409 | `{"error": "license_unavailable"}` | the licence is no longer valid (expired, refunded, revoked) or the account holds no seat on it any more: no key made |
+| 409 | `{"error": "purchase_in_progress"}` | another purchase of this account is running: retry |
+
+- Owner only, as every account request: a purchase of another account is
+  `404`, the same answer as a purchase that does not exist.
+- Each call makes a new key and ends the one before: a client that lost this
+  answer too asks again - the key it never received is the one that stops.
+  Another editor or a Composer configuration using that seat's key must be
+  given the new one (as after the device flow, which also makes a new key of the
+  seat, or the account page's "new key").
+- The key is in this answer only (`Cache-Control: no-store`); the forge never
+  writes it to its logs.
+- A purchase not yet handed its key: the first call hands it, and
+  `GET /upm/-/hub/purchases/<id>` then carries none.
+- The purchase's id was lost with the answer: send the purchase again with the
+  same `Idempotency-Key` and body - `200`, `Idempotent-Replayed: true`, its `id`
+  and `key_handed` -, then ask its key here.
 
 ### The statements: terms of sale and withdrawal
 

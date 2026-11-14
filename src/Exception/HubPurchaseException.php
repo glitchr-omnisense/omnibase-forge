@@ -20,6 +20,12 @@ final class HubPurchaseException extends \RuntimeException
     public const CONSENT_REQUIRED = 'consent_required';
     /** The statements sent are not the version shown now (another wording, language, terms): show them again (409). */
     public const CONSENT_CHANGED = 'consent_changed';
+    /** No such purchase of the account's (404): another account's is answered the same. */
+    public const UNKNOWN_PURCHASE = 'unknown_purchase';
+    /** A purchase's key asked again before it is paid (409, with its status). */
+    public const PURCHASE_NOT_PAID = 'purchase_not_paid';
+    /** A purchase's key asked again while its licence is no longer valid or the buyer's seat is gone (409). */
+    public const LICENSE_UNAVAILABLE = 'license_unavailable';
 
     /** @param array<string, mixed> $data */
     public function __construct(

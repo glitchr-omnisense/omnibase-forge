@@ -2,6 +2,7 @@
 
 namespace Base\Forge\Service;
 
+use Base\Entity\User;
 use Base\Forge\Entity\License;
 use Base\Forge\Entity\Product\LicenseOffer;
 use Base\Forge\Entity\Release;
@@ -66,7 +67,10 @@ class HubCatalog
                 'quote' => $this->urls->generate('forge_hub_quote', [], UrlGeneratorInterface::ABSOLUTE_URL),
                 'purchases' => $this->urls->generate('forge_hub_purchase', [], UrlGeneratorInterface::ABSOLUTE_URL),
                 'methods' => $this->urls->generate('forge_hub_payment_methods', [], UrlGeneratorInterface::ABSOLUTE_URL),
-            ] : []) : null,
+            ] : []) + [
+                // The editors linked to the account, and signing out (since 1.1.0).
+                'account_tokens' => $this->urls->generate('forge_hub_account_tokens', [], UrlGeneratorInterface::ABSOLUTE_URL),
+            ] : null,
             licensing: $licensing ? new Licensing($licensing['publicKey'], $licensing['previousKey'] ?? null, $licensing['rotation'] ?? null, $licensing['registry'] ?? null, $licensing['previousKeyValidUntil'] ?? null) : null,
             licenses: $sells ? [
                 'list' => $this->urls->generate('forge_hub_licenses', [], UrlGeneratorInterface::ABSOLUTE_URL),
@@ -167,18 +171,19 @@ class HubCatalog
     }
 
     /**
-     * The licences of a key's holder, as a hub client shows them: each one's software (its slug,
+     * The licences of a key's holder (or of an account, $holder), as a hub client shows them: each one's software (its slug,
      * which the licence API asks for), validity, seats, and the machines of that holder's seat -
      * each with the SHA-256 of its identifier, which the client compares with its own.
      *
      * @param list<License> $licenses
      */
-    public function licenses(array $licenses, string $email): array
+    public function licenses(array $licenses, string $email, ?User $holder = null): array
     {
         $list = [];
         foreach ($licenses as $license) {
             $software = $license->getSoftware();
-            $seat = $license->findSeat($email);
+            // The account's seat when the account asks (its token), else the key's e-mail's.
+            $seat = null !== $holder ? $license->findSeatOf($holder) : $license->findSeat($email);
             $list[] = array_filter([
                 'id' => $license->getId(),
                 'software' => $software ? array_filter(['slug' => $software->getSlug(), 'name' => $software->getName(), 'upm' => $software->getUpmName(), 'page' => $this->urls->generate('forge_software', ['slug' => $software->getSlug()], UrlGeneratorInterface::ABSOLUTE_URL)]) : null,

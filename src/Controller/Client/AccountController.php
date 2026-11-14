@@ -9,6 +9,7 @@ use Base\Forge\Entity\LicenseSeat;
 use Base\Forge\Repository\LicenseRepository;
 use Base\Forge\Repository\QuoteRepository;
 use Base\Forge\Service\HourLedger;
+use Base\Forge\Service\HubAccounts;
 use Base\Forge\Service\LicenseActivations;
 use Base\Forge\Service\LicenseIssuer;
 use Base\Forge\Service\LicenseSeats;
@@ -22,8 +23,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 /**
  * The client's side of the forge: their licences, the seats they give and
  * the keys of the ones they hold, how to install
- * from the Composer repository, their support hours, their quotes and what
- * they downloaded.
+ * from the Composer repository, their support hours, their quotes, what
+ * they downloaded and the editors linked to their account.
  */
 #[IsGranted('ROLE_USER')]
 class AccountController extends AbstractController
@@ -33,6 +34,7 @@ class AccountController extends AbstractController
         private readonly QuoteRepository $quotes,
         private readonly HourLedger $ledger,
         private readonly EntityManagerInterface $entityManager,
+        private readonly ?HubAccounts $accounts = null,
     ) {
     }
 
@@ -64,6 +66,22 @@ class AccountController extends AbstractController
         $response->headers->set('Cache-Control', 'no-store, private');
 
         return $response;
+    }
+
+    /**
+     * An editor or desktop hub linked to the account signed out: its token revoked (docs/hub.md,
+     * "Linked editors and signing out") - the way for one the user no longer has at hand.
+     */
+    #[Route('/compte/editeurs/{id}/retirer', name: 'forge_account_hub_token_revoke', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function revokeHubToken(Request $request, int $id): Response
+    {
+        $this->checkToken($request, 'forge_hub_token_'.$id);
+        if (null === $this->accounts || !$this->accounts->revoke($this->user(), $id)) {
+            throw $this->createNotFoundException('No such linked editor of yours.');
+        }
+        $this->addFlash('success', '@forge.account.editor_revoked');
+
+        return $this->redirect($this->generateUrl('forge_account_licenses').'#editeurs');
     }
 
     /** The owner gives a seat to an e-mail - who is told by e-mail. */
@@ -152,6 +170,7 @@ class AccountController extends AbstractController
             'history' => $this->ledger->history($user, 20),
             'quotes' => $this->quotes->findForClient($user),
             'downloads' => $this->entityManager->getRepository(Download::class)->findBy(['user' => $user], ['downloadedAt' => 'DESC'], 10),
+            'hub_tokens' => $this->accounts?->tokensOf($user) ?? [],
             'key' => $key,
         ]);
     }

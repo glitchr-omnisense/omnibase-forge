@@ -2,7 +2,10 @@
 
 namespace Base\Forge\Controller\Client;
 
+use Base\Forge\EventSubscriber\HubAccountSubscriber;
+use Base\Forge\Repository\LicenseRepository;
 use Base\Forge\Service\DeviceLinks;
+use Base\Forge\Service\HubAccounts;
 use Base\Forge\Service\HubCatalog;
 use Base\Forge\Service\UpmRegistry;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -27,6 +30,8 @@ class HubController extends AbstractController
         private readonly UpmRegistry $registry,
         private readonly DeviceLinks $links,
         #[Autowire('%forge.hub.checkout%')] private readonly bool $checkout = true,
+        private readonly ?HubAccounts $accounts = null,
+        private readonly ?LicenseRepository $licenseRepository = null,
     ) {
     }
 
@@ -47,11 +52,25 @@ class HubController extends AbstractController
         return $this->document($this->catalog->catalog($caller[1]), Response::HTTP_OK, ['Cache-Control' => 'private, no-store']);
     }
 
-    /** The key's licences and the machines of its seat (a hub client's Licences page). */
+    /**
+     * The key's licences and the machines of its seat (a hub client's Licences page); with the
+     * account's token (Bearer gla_..., since 1.1.0), the licences the account holds a seat of and
+     * the machines of its seats. The account's token still opens no package.
+     */
     #[Route('/hub/licenses', name: 'forge_hub_licenses', methods: ['GET'])]
     public function licenses(Request $request): JsonResponse
     {
-        $caller = $this->registry->authenticate($request->headers->get('Authorization'));
+        $authorization = $request->headers->get('Authorization');
+        if (HubAccounts::isAccountBearer($authorization) && null !== $this->accounts && null !== $this->licenseRepository) {
+            $user = $this->accounts->authenticate($authorization);
+            if (null === $user) {
+                return $this->document(['error' => 'unauthorized'], Response::HTTP_UNAUTHORIZED, ['WWW-Authenticate' => HubAccountSubscriber::REALM, 'Cache-Control' => 'no-store']);
+            }
+            $held = array_values(array_filter($this->licenseRepository->findHeldBy($user), static fn ($license) => $license->isValid()));
+
+            return $this->document($this->catalog->licenses($held, (string) $user->getEmail(), $user), Response::HTTP_OK, ['Cache-Control' => 'private, no-store']);
+        }
+        $caller = $this->registry->authenticate($authorization);
         if (null === $caller || null === $caller[0]) {
             return $this->document(['error' => 'A licence key is needed.'], Response::HTTP_UNAUTHORIZED, ['WWW-Authenticate' => 'Bearer realm="Glitch Art packages"']);
         }

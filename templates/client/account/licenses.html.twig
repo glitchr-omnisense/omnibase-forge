@@ -119,6 +119,25 @@
     </div>
 </section>
 
+{% if hub_tokens|default([])|length %}
+<section class="forge-section" id="editeurs">
+    <h2><i class="fa-solid fa-plug"></i> {{ '@forge.account.editors'|trans }}</h2>
+    <p class="forge-meta">{{ '@forge.account.editors_help'|trans }}</p>
+    <ul class="forge-list">
+    {% for token in hub_tokens %}
+        <li>
+            <code>{{ token.tokenPrefix }}…</code>
+            <span class="forge-meta">{{ '@forge.account.editor_linked'|trans({date: token.createdAt|format_date('medium')}) }} · {{ token.lastUsedAt ? '@forge.account.editor_used'|trans({date: token.lastUsedAt|format_date('medium')}) : '@forge.account.editor_unused'|trans }}</span>
+            <form method="post" action="{{ path('forge_account_hub_token_revoke', {id: token.id}) }}" data-confirm="{{ '@forge.account.editor_revoke_confirm'|trans }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('forge_hub_token_' ~ token.id) }}">
+                <button type="submit" class="forge-link">{{ '@forge.account.editor_revoke'|trans }}</button>
+            </form>
+        </li>
+    {% endfor %}
+    </ul>
+</section>
+{% endif %}
+
 {% if downloads|length %}
 <section class="forge-section">
     <h2><i class="fa-solid fa-download"></i> {{ '@forge.account.downloads'|trans }}</h2>

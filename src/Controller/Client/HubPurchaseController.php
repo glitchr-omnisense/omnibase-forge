@@ -125,10 +125,26 @@ class HubPurchaseController extends AbstractController
     public function status(Request $request, string $token): JsonResponse
     {
         return $this->guarded($request, function (User $user) use ($token) {
-            $purchase = $this->purchases->find($user, $token) ?? throw new HubPurchaseException('unknown_purchase', 404);
+            $purchase = $this->purchases->find($user, $token) ?? throw new HubPurchaseException(HubPurchaseException::UNKNOWN_PURCHASE, 404);
             $this->purchases->refresh($purchase);
 
             return $this->answer($purchase, $this->purchases->handKey($purchase), Response::HTTP_OK);
+        });
+    }
+
+    /**
+     * A paid purchase's key again, for a client that lost the answer carrying it: a new key of the
+     * buyer's seat on its licence, the previous one ending (only keys' hashes are kept). Owner only;
+     * 404 unknown_purchase, 409 purchase_not_paid or license_unavailable (docs/hub.md, "A purchase's
+     * key again").
+     */
+    #[Route('/purchases/{token}/key', name: 'forge_hub_purchase_key', requirements: ['token' => '[0-9a-f]{32}'], methods: ['POST'])]
+    public function key(Request $request, string $token): JsonResponse
+    {
+        return $this->guarded($request, function (User $user) use ($token) {
+            $key = $this->purchases->reissueKey($user, $token);
+
+            return $this->document($this->purchases->describe($this->purchases->find($user, $token) ?? throw new HubPurchaseException(HubPurchaseException::UNKNOWN_PURCHASE, 404), $key));
         });
     }
 

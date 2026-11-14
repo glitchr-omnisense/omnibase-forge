@@ -9,14 +9,15 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
- * The hub clients' account API (HubPurchaseController: its routes say `_forge_hub_account`)
+ * The hub clients' account API (HubPurchaseController, HubAccountController: their routes say `_forge_hub_account`)
  * answers to the account's token only: checked as soon as the route is known, before the request's
  * payload is read, so that a client without a token is told 401 - not that its body is wrong. The
- * user found is the request's `_forge_hub_user`.
+ * user found is the request's `_forge_hub_user`, the token it came with `_forge_hub_token`.
  */
 final class HubAccountSubscriber implements EventSubscriberInterface
 {
     public const USER = '_forge_hub_user';
+    public const TOKEN = '_forge_hub_token';
     public const REALM = 'Bearer realm="Forge account"';
 
     public function __construct(private readonly HubAccounts $accounts)
@@ -35,12 +36,13 @@ final class HubAccountSubscriber implements EventSubscriberInterface
         if (!$event->isMainRequest() || true !== $request->attributes->get('_forge_hub_account')) {
             return;
         }
-        $user = $this->accounts->authenticate($request->headers->get('Authorization'));
-        if (null === $user) {
+        $token = $this->accounts->token($request->headers->get('Authorization'));
+        if (null === $token) {
             $event->setResponse(new JsonResponse(['error' => 'unauthorized'], 401, ['WWW-Authenticate' => self::REALM, 'Cache-Control' => 'no-store']));
 
             return;
         }
-        $request->attributes->set(self::USER, $user);
+        $request->attributes->set(self::USER, $token->getUser());
+        $request->attributes->set(self::TOKEN, $token);
     }
 }

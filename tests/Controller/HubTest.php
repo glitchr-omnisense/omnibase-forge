@@ -32,6 +32,7 @@ class HubTest extends ForgeWebTestCase
         self::assertSame('https://localhost/upm/-/hub/quote', $manifest['checkout']['quote']);
         self::assertSame('https://localhost/upm/-/hub/purchases', $manifest['checkout']['purchases']);
         self::assertSame('https://localhost/upm/-/hub/payment-methods', $manifest['checkout']['methods']);
+        self::assertSame('https://localhost/upm/-/hub/account-tokens', $manifest['checkout']['account_tokens']);
         self::assertSame(['list' => 'https://localhost/upm/-/hub/licenses', 'activate' => 'https://localhost/api/licenses/activate', 'release' => 'https://localhost/api/licenses/release'], $manifest['licenses']);
     }
 
