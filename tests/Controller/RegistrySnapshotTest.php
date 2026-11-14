@@ -135,10 +135,27 @@ class RegistrySnapshotTest extends ForgeWebTestCase
         }
         $documents['package unknown'] = $this->capture('GET', '/upm/'.$scope.'.nothing');
         $documents['search wrong key'] = $this->capture('GET', '/upm/-/v1/search?text='.$scope, 'Bearer glk_0000-0000-0000-0000-0000-0000-0000-0000');
-        $documents['hub'] = $this->capture('GET', '/upm/-/hub.json', null, function (\stdClass $hub) use ($scope) {
-            // The scopes of every Unity package in the database: this test's, beside whatever else.
-            self::assertContains($scope, $hub->sources[0]->scopes);
+        $configured = static::getContainer()->getParameter('forge.hub');
+        $documents['hub'] = $this->capture('GET', '/upm/-/hub.json', null, function (\stdClass $hub) use ($scope, $configured) {
+            // The scopes the host sets (forge.hub.scopes), or else those of every Unity package in
+            // the database: this test's, beside whatever else.
+            if ($configured['scopes'] ?? []) {
+                self::assertSame(array_values($configured['scopes']), $hub->sources[0]->scopes);
+            } else {
+                self::assertContains($scope, $hub->sources[0]->scopes);
+            }
             $hub->sources[0]->scopes = ['<scopes>'];
+
+            // The brand is the host's (forge.hub.name, logo, color): checked to be what it sets, then
+            // compared as the defaults the snapshot was recorded with (name "Forge", no logo, no colour).
+            $name = $configured['name'] ?? 'Forge';
+            self::assertSame($name, $hub->name);
+            self::assertSame($name ?: null, $hub->sources[0]->name ?? null);
+            $hub->name = $hub->sources[0]->name = 'Forge';
+            foreach (['logo', 'color'] as $brand) {
+                self::assertSame(isset($configured[$brand]), isset($hub->{$brand}), $brand);
+                unset($hub->{$brand});
+            }
 
             return $hub;
         });

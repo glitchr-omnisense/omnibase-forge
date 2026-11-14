@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-14
+
+### Fixed
+
+Tests only, no behaviour change: the suite now passes inside a host application as well as in the package's own CI
+and the omnibase harness.
+
+- `ForgeConfigurationTest` names its data provider with PHPUnit's `#[DataProvider]` attribute (the annotation kept for
+  PHPUnit 9.6): PHPUnit 12 reads no annotation, so the test ran without its colours and failed.
+- `HubPurchaseTest` expects the quote's store name the host configures (`forge.hub.name`, "Forge" by default), not
+  "Forge" always.
+- `RegistrySnapshotTest` checks the hub manifest's scopes against `forge.hub.scopes` when the host sets them (else
+  the database's, as before), and its brand (`name`, `logo`, `color`) against the host's configuration, before
+  comparing the manifest with the snapshot recorded with the defaults.
+
 ## [1.0.0] - 2026-11-13
 
 ### Changed

@@ -3,6 +3,7 @@
 namespace Tests\Base\Forge\DependencyInjection;
 
 use Base\Forge\DependencyInjection\ForgeConfiguration;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\Definition\Processor;
@@ -35,7 +36,12 @@ final class ForgeConfigurationTest extends TestCase
         yield 'empty' => [''];
     }
 
-    /** @dataProvider notAColour */
+    /**
+     * The attribute for PHPUnit 10 and later (12 reads nothing else), the annotation for 9.6.
+     *
+     * @dataProvider notAColour
+     */
+    #[DataProvider('notAColour')]
     public function testAnythingElseIsAConfigurationError(mixed $color): void
     {
         $this->expectException(InvalidConfigurationException::class);

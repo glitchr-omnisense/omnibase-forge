@@ -103,7 +103,9 @@ class HubPurchaseTest extends ForgeWebTestCase
         // No method yet; one saved on Stripe's page, for a customer made then.
         self::assertSame(['gateway' => 'stripe', 'methods' => []], $this->json('GET', '/upm/-/hub/payment-methods', $auth));
         $quote = $this->json('GET', '/upm/-/hub/quote?offer='.$this->offer->getId(), $auth);
-        self::assertSame([4900, 'EUR', 'Forge', null], [$quote['price'], $quote['currency'], $quote['store'], $quote['method']], 'the amount, the currency and the store\'s name to confirm');
+        // The store's name is the hub manifest's: "Forge" by default, the host's forge.hub.name when it sets one.
+        $store = static::getContainer()->getParameter('forge.hub')['name'] ?? 'Forge';
+        self::assertSame([4900, 'EUR', $store, null], [$quote['price'], $quote['currency'], $quote['store'], $quote['method']], 'the amount, the currency and the store\'s name to confirm');
         self::assertSame('payment_method_required', $this->json('POST', '/upm/-/hub/purchases', $auth + ['HTTP_IDEMPOTENCY_KEY' => 'buy-'.bin2hex(random_bytes(6))], ['offer' => $this->offer->getId(), 'price' => 4900, 'currency' => 'EUR'], 409)['error']);
 
         $setup = $this->json('POST', '/upm/-/hub/payment-methods', $auth, null, 201);
