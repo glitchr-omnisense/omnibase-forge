@@ -53,15 +53,20 @@
         "symfony/security-bundle": "^6.0|^7.0|^8.0"
     },
     "require-dev": {
-        "omnisense/omnitrade": "^1.1",
+        "omnisense/omnitrade": "^1.2",
         "phpunit/phpunit": "^9.6|^10.5",
         "symfony/console": "^6.0|^7.0|^8.0",
         "symfony/framework-bundle": "^6.0|^7.0|^8.0",
         "symfony/twig-bundle": "^6.0|^7.0|^8.0"
     },
+    "conflict": {
+        "omnisense/omnitrade": "<1.2"
+    },
     "suggest": {
         "ext-git2": "Required by git/git-bundle to read repositories (releases, the project dashboard's history)",
-        "omnisense/omnitrade": "^1.1 with a provider that saves payment methods (omnitrade/stripe ^1.1): one-click purchases from Forge Store and Forge Hub (forge.hub.payment_gateway, docs/hub.md)",
+        "omnisense/omnitrade": "^1.2 with a provider that saves payment methods: one-click purchases from Forge Store and Forge Hub (forge.hub.payment_gateway, docs/hub.md)",
+        "omnitrade/stripe": "^1.2: Stripe as forge.hub.payment_gateway (a saved card read back when its buyer returns)",
+        "omnitrade/paypal": "^1.2: PayPal as forge.hub.payment_gateway (an approved setup turned into a saved method when its buyer returns)",
         "symfony/http-client": "Reads the pipelines' runs from GitHub Actions (Pipeline\\GithubActionsSource)",
         "symfony/yaml": "The stages of a GitHub Actions run, from its workflow file's needs"
     },

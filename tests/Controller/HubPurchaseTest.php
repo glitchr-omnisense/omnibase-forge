@@ -6,6 +6,7 @@ use Base\Entity\User;
 use Base\Forge\Entity\HubPurchase;
 use Base\Forge\Entity\License;
 use Base\Forge\Entity\PaymentCustomer;
+use Base\Forge\Entity\PaymentSetup;
 use Base\Forge\Entity\Product\LicenseOffer;
 use Base\Forge\Entity\Software;
 use Base\Forge\EventListener\HubPurchaseCharges;
@@ -34,6 +35,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Base\Marketplace\Service\Pricing as ShopPricing;
 use Base\Marketplace\Service\RegionResolver;
 use Doctrine\ORM\EntityManagerInterface;
+use Omnitrade\PayPal\PayPalGatewayFactory;
 use Omnitrade\Registry;
 use Omnitrade\Request\SetupMethod;
 use Omnitrade\Stripe\StripeGatewayFactory;
@@ -64,6 +66,13 @@ class HubPurchaseTest extends ForgeWebTestCase
     private string $card = 'authentication';
     /** The intent's status as GET /v1/payment_intents/{id} gives it. */
     private string $intentStatus = 'requires_action';
+    /** The setup session as GET /v1/checkout/sessions/cs_test_setup gives it: complete, open; and its customer. */
+    private string $setupSession = 'complete';
+    private string $setupCustomer = 'cus_forge';
+    /** PayPal's setup token status (PAYER_ACTION_REQUIRED, APPROVED, VAULTED) and its calls, in the PayPal-shaped test. */
+    private string $paypalSetup = 'PAYER_ACTION_REQUIRED';
+    /** @var list<array{string, string}> */
+    private array $paypal = [];
 
     /** @var array{secret: string, public: string} */
     private array $pair;
@@ -120,10 +129,11 @@ class HubPurchaseTest extends ForgeWebTestCase
         self::assertSame('https://checkout.stripe.com/c/pay/cs_test_setup', $setup['url']);
         [, , $session] = $this->sent('POST', '/v1/checkout/sessions');
         self::assertSame(['setup', 'cus_forge'], [$session['mode'], $session['customer']]);
-        self::assertSame('https://localhost/hub/payment-methods/saved', $session['success_url']);
+        self::assertMatchesRegularExpression('#^https://localhost/hub/payment-methods/saved\?setup=[0-9a-f]{32}$#', $session['success_url'], 'the setup\'s token on the return URL');
         $customer = static::getContainer()->get(EntityManagerInterface::class)->getRepository(PaymentCustomer::class)->findOneBy(['reference' => 'cus_forge']);
         self::assertInstanceOf(PaymentCustomer::class, $customer, 'the provider\'s customer is all the forge keeps');
-        self::assertSame(200, $this->request('GET', '/hub/payment-methods/saved')->getStatusCode(), 'the page Stripe sends the buyer back to');
+        self::assertSame(200, $this->request('GET', substr($session['success_url'], \strlen('https://localhost')))->getStatusCode(), 'the page Stripe sends the buyer back to');
+        self::assertCount(1, $this->sentAll('GET', '/v1/checkout/sessions/cs_test_setup'), 'which completes the setup: a read at Stripe');
 
         $methods = $this->json('GET', '/upm/-/hub/payment-methods', $auth)['methods'];
         self::assertSame([['id' => 'pm_forge', 'type' => 'card', 'label' => 'Visa •••• 4242', 'brand' => 'visa', 'last4' => '4242', 'expires' => '2030-12', 'expired' => false]], $methods);
@@ -271,6 +281,102 @@ class HubPurchaseTest extends ForgeWebTestCase
         self::assertMatchesRegularExpression('/^glk_/', $first['key']);
         self::assertArrayNotHasKey('key', $this->json('GET', '/upm/-/hub/purchases/'.$waiting['id'], $auth));
         self::assertSame(401, $this->request('POST', '/upm/-/hub/purchases/'.$waiting['id'].'/key')->getStatusCode(), 'the account\'s token is needed');
+    }
+
+    public function testAStripeSetupIsReadBackOnReturnAndOneNotFinishedIsNotSaved(): void
+    {
+        $auth = ['HTTP_AUTHORIZATION' => 'Bearer '.$this->link()];
+
+        // The buyer gives up on Stripe's page: sent back to the same address, nothing saved.
+        $this->setupSession = 'open';
+        $this->json('POST', '/upm/-/hub/payment-methods', $auth, null, 201);
+        $cancelled = $this->returnPage();
+        self::assertSame(200, $cancelled->getStatusCode());
+        $title = static::getContainer()->get(TranslatorInterface::class)->trans('@forge.hub.returned.not_saved.title');
+        self::assertStringContainsString($title, (string) $cancelled->getContent());
+        self::assertSame(PaymentSetup::NOT_SAVED, $this->lastSetup()->getState());
+        self::assertSame([], $this->sentAll('POST', '/v1/setup_intents'), 'reads only');
+
+        // Saved the second time: the return page reads the session, the setup is saved; once only.
+        $this->setupSession = 'complete';
+        $this->json('POST', '/upm/-/hub/payment-methods', $auth, null, 201);
+        $url = $this->returnUrl();
+        self::assertSame(200, $this->request('GET', $url)->getStatusCode());
+        self::assertSame(PaymentSetup::SAVED, $this->lastSetup()->getState());
+        $read = \count($this->sentAll('GET', '/v1/checkout/sessions/cs_test_setup'));
+        self::assertSame(200, $this->request('GET', $url)->getStatusCode(), 'the page again');
+        self::assertCount($read, $this->sentAll('GET', '/v1/checkout/sessions/cs_test_setup'), 'a setup completed is not asked again');
+        self::assertSame(['pm_forge'], array_column($this->json('GET', '/upm/-/hub/payment-methods', $auth)['methods'], 'id'));
+
+        // A token that is none of the forge's, or not one.
+        self::assertSame(404, $this->request('GET', '/hub/payment-methods/saved?setup='.str_repeat('a', 32))->getStatusCode());
+        self::assertSame(404, $this->request('GET', '/hub/payment-methods/saved?setup=../../x')->getStatusCode());
+        self::assertSame(200, $this->request('GET', '/hub/payment-methods/saved')->getStatusCode(), 'a setup started before 1.2 comes back without a token');
+    }
+
+    public function testASetupThatIsNotTheUsersCustomersIsNeverCompleted(): void
+    {
+        $auth = ['HTTP_AUTHORIZATION' => 'Bearer '.$this->link()];
+        $this->json('POST', '/upm/-/hub/payment-methods', $auth, null, 201);
+
+        // The session Stripe answers for that reference is another customer's.
+        $this->setupCustomer = 'cus_someone_else';
+        self::assertSame(404, $this->returnPage()->getStatusCode());
+        self::assertSame(PaymentSetup::NOT_SAVED, $this->lastSetup()->getState(), 'given up, never asked again');
+    }
+
+    public function testASetupLeftPendingIsCompletedWhileYoungThenGivenUp(): void
+    {
+        $auth = ['HTTP_AUTHORIZATION' => 'Bearer '.$this->link()];
+
+        // The buyer is still on Stripe's page (or closed it): listing the methods leaves the setup pending.
+        $this->setupSession = 'open';
+        $this->json('POST', '/upm/-/hub/payment-methods', $auth, null, 201);
+        $this->json('GET', '/upm/-/hub/payment-methods', $auth);
+        self::assertSame(PaymentSetup::PENDING, $this->lastSetup()->getState());
+
+        // Saved, and the tab closed before Stripe sent them back: the next listing completes it.
+        $this->setupSession = 'complete';
+        $this->json('GET', '/upm/-/hub/payment-methods', $auth);
+        self::assertSame(PaymentSetup::SAVED, $this->lastSetup()->getState());
+
+        // One older than three hours, never finished: given up.
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $old = new PaymentSetup($em->find($this->buyer::class, $this->buyer->getId()), 'stripe', bin2hex(random_bytes(16)), 'cs_test_setup', 'cus_forge', new \DateTimeImmutable('-4 hours'));
+        $em->persist($old);
+        $em->flush();
+        $this->setupSession = 'open';
+        $this->json('GET', '/upm/-/hub/payment-methods', $auth);
+        $em->clear();
+        self::assertSame(PaymentSetup::NOT_SAVED, $em->find(PaymentSetup::class, $old->getId())->getState());
+    }
+
+    public function testAPayPalSetupIsTurnedIntoASavedMethodByTheSameCode(): void
+    {
+        if (!class_exists(PayPalGatewayFactory::class)) {
+            self::markTestSkipped('Needs omnitrade/paypal 1.2.');
+        }
+        $this->payPalAnswers();
+        $auth = ['HTTP_AUTHORIZATION' => 'Bearer '.$this->link()];
+
+        $setup = $this->json('POST', '/upm/-/hub/payment-methods', $auth, null, 201);
+        self::assertSame(['5C991763VB2781612', 'https://www.sandbox.paypal.com/agreements/approve?approval_session_id=05C1734587219561N'], [$setup['id'], $setup['url']]);
+        $kept = $this->lastSetup();
+        self::assertSame(['paypal', '5C991763VB2781612', 'customer_4029352050'], [$kept->getGateway(), $kept->getReference(), $kept->getCustomer()]);
+
+        // Not approved yet: listed, nothing; the setup still pending.
+        self::assertSame([], $this->json('GET', '/upm/-/hub/payment-methods', $auth)['methods']);
+        self::assertSame(PaymentSetup::PENDING, $this->lastSetup()->getState());
+        self::assertNotContains(['POST', '/v3/vault/payment-tokens'], $this->paypal, 'nothing converted before the approval');
+
+        // Approved on PayPal's page; back on the return page: the setup token becomes a payment token, once.
+        $this->paypalSetup = 'APPROVED';
+        self::assertSame(200, $this->returnPage()->getStatusCode());
+        self::assertSame(PaymentSetup::SAVED, $this->lastSetup()->getState());
+        self::assertCount(1, array_filter($this->paypal, static fn (array $call) => ['POST', '/v3/vault/payment-tokens'] === $call));
+        $methods = $this->json('GET', '/upm/-/hub/payment-methods', $auth);
+        self::assertSame(['paypal', ['8kk8451t']], [$methods['gateway'], array_column($methods['methods'], 'id')]);
+        self::assertSame('PayPal alice@example.org', $methods['methods'][0]['label']);
     }
 
     public function testARefusedCardChargesNothingAndLeavesNoCart(): void
@@ -427,6 +533,66 @@ class HubPurchaseTest extends ForgeWebTestCase
         self::assertSame(['2026-11-14', 'fr'], [$records[0]->getTermsVersion(), $records[0]->getLocale()]);
     }
 
+    /** The setup the user made last. */
+    private function lastSetup(): PaymentSetup
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $setup = $em->getRepository(PaymentSetup::class)->findOneBy(['user' => $this->buyer->getId()], ['id' => 'DESC']);
+        self::assertInstanceOf(PaymentSetup::class, $setup);
+
+        return $setup;
+    }
+
+    /** The return address the provider was given for the last setup (path and query). */
+    private function returnUrl(): string
+    {
+        return '/hub/payment-methods/saved?setup='.$this->lastSetup()->getToken();
+    }
+
+    /** The provider's page sends its buyer back, in a browser with no session. */
+    private function returnPage(): Response
+    {
+        $cookies = $this->cookies;
+        $this->cookies = [];
+        $response = $this->request('GET', $this->returnUrl());
+        $this->cookies = $cookies;
+
+        return $response;
+    }
+
+    /** The forge's one-click gateway made "paypal" (stripeAnswers() registered it beside Stripe). */
+    private function payPalAnswers(): void
+    {
+        $container = static::getContainer();
+        $container->set(HubPayments::class, new HubPayments($container->get(EntityManagerInterface::class), $container->get(LockFactory::class), $container->get(OmnitradeGateways::class), 'paypal'));
+    }
+
+    /** PayPal, as its API answers, through a recorded client: the omnitrade gateway "paypal". */
+    private function payPalFactory(): PayPalGatewayFactory
+    {
+        $customer = 'customer_4029352050';
+        $setup = '5C991763VB2781612';
+        $token = ['id' => '8kk8451t', 'customer' => ['id' => $customer], 'payment_source' => ['paypal' => ['usage_type' => 'MERCHANT', 'customer_type' => 'CONSUMER', 'email_address' => 'alice@example.org', 'payer_id' => 'QYR5Z8XDVJNXQ']]];
+        $http = new MockHttpClient(function (string $method, string $url) use ($customer, $setup, $token): MockResponse {
+            $path = (string) parse_url($url, \PHP_URL_PATH);
+            $this->paypal[] = [$method, $path];
+            $json = static fn (array $data, int $status = 200) => new MockResponse(json_encode($data, \JSON_THROW_ON_ERROR), ['http_code' => $status]);
+            $setupToken = fn () => ['id' => $setup, 'customer' => ['id' => $customer], 'status' => $this->paypalSetup, 'payment_source' => ['paypal' => ['usage_type' => 'MERCHANT', 'customer_type' => 'CONSUMER']], 'links' => [['href' => 'https://www.sandbox.paypal.com/agreements/approve?approval_session_id=05C1734587219561N', 'rel' => 'approve', 'method' => 'GET']]];
+
+            return match (true) {
+                '/v1/oauth2/token' === $path => $json(['access_token' => 'A21AA', 'expires_in' => 32400]),
+                'POST' === $method && '/v3/vault/setup-tokens' === $path => $json($setupToken(), 201),
+                'GET' === $method && '/v3/vault/setup-tokens/'.$setup === $path => $json($setupToken()),
+                'POST' === $method && '/v3/vault/payment-tokens' === $path => (function () use ($json, $token) { $this->paypalSetup = 'VAULTED'; return $json($token, 201); })(),
+                'GET' === $method && '/v3/vault/payment-tokens' === $path => $json(['customer' => ['id' => $customer], 'payment_tokens' => 'VAULTED' === $this->paypalSetup ? [array_diff_key($token, ['customer' => 1])] : [], 'total_items' => 'VAULTED' === $this->paypalSetup ? 1 : 0, 'total_pages' => 1]),
+                default => $json(['name' => 'RESOURCE_NOT_FOUND', 'message' => 'The specified resource does not exist.'], 404),
+            };
+        });
+
+        return new PayPalGatewayFactory($http);
+    }
+
     /** The device flow, as the editor and its user go through it: the account's token. */
     private function link(): string
     {
@@ -512,6 +678,8 @@ class HubPurchaseTest extends ForgeWebTestCase
             return match (true) {
                 'POST /v1/customers' === "$method $path" => $json(['id' => 'cus_forge', 'object' => 'customer']),
                 'POST /v1/checkout/sessions' === "$method $path" => $json(['id' => 'cs_test_setup', 'object' => 'checkout.session', 'mode' => 'setup', 'customer' => $form['customer'] ?? null, 'url' => 'https://checkout.stripe.com/c/pay/cs_test_setup']),
+                'GET /v1/checkout/sessions/cs_test_setup' === "$method $path" => $json(['id' => 'cs_test_setup', 'object' => 'checkout.session', 'mode' => 'setup', 'customer' => $this->setupCustomer, 'status' => $this->setupSession,
+                    'setup_intent' => 'complete' === $this->setupSession ? ['id' => 'seti_forge', 'object' => 'setup_intent', 'status' => 'succeeded', 'payment_method' => $card] : ['id' => 'seti_forge', 'object' => 'setup_intent', 'status' => 'requires_payment_method', 'payment_method' => null]]),
                 'GET /v1/payment_methods' === "$method $path" => $json(['object' => 'list', 'data' => [$card]]),
                 'GET /v1/payment_methods/pm_forge' === "$method $path" => $json($card),
                 'GET /v1/payment_methods/pm_someone_else' === "$method $path" => $json(['customer' => 'cus_other'] + $card),
@@ -526,7 +694,13 @@ class HubPurchaseTest extends ForgeWebTestCase
                 default => $json(['error' => ['message' => 'No such resource: '.$method.' '.$path, 'code' => 'resource_missing']], 404),
             };
         });
-        $registry = new Registry([new StripeGatewayFactory($http)], ['stripe' => ['factory' => 'stripe', 'options' => ['api_key' => 'sk_test_recorded', 'webhook_secret' => self::WEBHOOK_SECRET, 'tags' => ['site' => 'forge']]]]);
+        $factories = [new StripeGatewayFactory($http)];
+        $gateways = ['stripe' => ['factory' => 'stripe', 'options' => ['api_key' => 'sk_test_recorded', 'webhook_secret' => self::WEBHOOK_SECRET, 'tags' => ['site' => 'forge']]]];
+        if (class_exists(PayPalGatewayFactory::class)) {
+            $factories[] = $this->payPalFactory();
+            $gateways['paypal'] = ['factory' => 'paypal', 'options' => ['client_id' => 'cid', 'secret' => 'sec', 'sandbox' => true]];
+        }
+        $registry = new Registry($factories, $gateways);
         static::getContainer()->set(OmnitradeGateways::class, new OmnitradeGateways($registry, static::getContainer()->get('router'), null, static::getContainer()->get('event_dispatcher'), 'test'));
     }
 

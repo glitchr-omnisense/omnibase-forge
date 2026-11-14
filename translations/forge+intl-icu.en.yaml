@@ -57,6 +57,12 @@ hub:
     saved:
       title: "Payment method saved"
       text: "You can close this page and go back to Unity: your purchases are now one click away."
+    not_saved:
+      title: "Payment method not saved"
+      text: "The payment method was not saved and nothing was charged. Go back to Unity to try again."
+    setup_pending:
+      title: "Being saved"
+      text: "Your payment method is still being saved. Go back to Unity: it appears there once it is."
     paid:
       title: "Paid"
       text: "Your bank confirmed the payment. Go back to Unity: the package installs itself."

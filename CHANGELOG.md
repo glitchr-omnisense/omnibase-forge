@@ -2,6 +2,36 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-14
+
+### Added
+
+- A saved payment method's setup is completed when its buyer is back (omnisense/omnitrade 1.2's
+  `CompleteMethodSetup`, asked whenever the gateway supports it - no provider-specific code): a read at Stripe, the
+  approved setup turned into a saved method at PayPal (omnitrade/paypal 1.2, which one-click purchases can now use).
+  - `Entity\PaymentSetup` (table `forge_payment_setup`): the provider's setup and customer, under a random token,
+    pending until completed (`saved`, `not_saved`).
+  - `POST /upm/-/hub/payment-methods` sends the buyer back to `/hub/payment-methods/saved?setup=<token>`, which
+    completes the setup and says saved, not saved (given up) or being saved (the provider unreachable); an unknown
+    token is 404, a setup that is not the user's customer's is never completed. A return without a token (a setup
+    started before 1.2.0) is answered as before.
+  - `HubPayments::complete()`; `HubPayments::methods()` completes the user's setups still pending, for three hours
+    (the tab closed before the provider sent its buyer back), then gives them up.
+  - `HubPurchaseTest`: a Stripe-shaped completion (a read), a PayPal-shaped one (the setup converted), a setup not
+    finished, another customer's, one left pending then completed or given up.
+- docs/hub.md, "Completing the setup": nothing changes for Forge Store and Forge Hub.
+
+### Changed
+
+- Requires `omnisense/omnitrade` ^1.2 when it is installed (`conflict` with < 1.2; require-dev ^1.2); suggests
+  `omnitrade/stripe` or `omnitrade/paypal` ^1.2.
+- The test bootstrap reads the suggested packages a host has in vendor/ without installing them too
+  (the omnibase harness's checkouts of omnitrade/paypal).
+
+### Schema
+
+- New table `forge_payment_setup`: the host's migration (`make:migration`).
+
 ## [1.1.0] - 2026-11-14
 
 ### Added

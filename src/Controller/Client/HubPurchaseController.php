@@ -48,12 +48,17 @@ class HubPurchaseController extends AbstractController
         ]));
     }
 
-    /** A method to save: the provider's page to open (the system browser, Forge Hub's webview). */
+    /**
+     * A method to save: the provider's page to open (the system browser, Forge Hub's webview). It
+     * sends the buyer back to the return page with the setup's token (?setup=), which completes it.
+     */
     #[Route('/payment-methods', name: 'forge_hub_payment_method_add', methods: ['POST'])]
     public function addMethod(Request $request): JsonResponse
     {
         return $this->guarded($request, function (User $user) use ($request) {
-            $setup = $this->payments->setup($user, $this->generateUrl('forge_hub_payment_method_saved', [], UrlGeneratorInterface::ABSOLUTE_URL), $request->getPreferredLanguage() ?: null);
+            $token = bin2hex(random_bytes(16));
+            $returnUrl = $this->generateUrl('forge_hub_payment_method_saved', ['setup' => $token], UrlGeneratorInterface::ABSOLUTE_URL);
+            $setup = $this->payments->setup($user, $returnUrl, $request->getPreferredLanguage() ?: null, $token);
 
             return $this->document(['id' => $setup->reference, 'url' => $setup->redirectUrl], Response::HTTP_CREATED);
         });

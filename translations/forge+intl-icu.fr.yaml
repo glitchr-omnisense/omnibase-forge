@@ -57,6 +57,12 @@ hub:
     saved:
       title: "Moyen de paiement enregistré"
       text: "Vous pouvez fermer cette page et revenir dans Unity : vos achats se font désormais en un clic."
+    not_saved:
+      title: "Moyen de paiement non enregistré"
+      text: "Le moyen de paiement n'a pas été enregistré et rien n'a été débité. Revenez dans Unity pour réessayer."
+    setup_pending:
+      title: "Enregistrement en cours"
+      text: "Votre moyen de paiement est encore en cours d'enregistrement. Revenez dans Unity : il y apparaît dès qu'il l'est."
     paid:
       title: "Payé"
       text: "Votre banque a confirmé le paiement. Revenez dans Unity : le paquet s'installe tout seul."

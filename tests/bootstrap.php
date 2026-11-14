@@ -34,11 +34,11 @@ foreach ($candidates as $candidate) {
             array_push($required, ...array_keys(($composer($sibling)['require'] ?? []) + ($composer($sibling)['suggest'] ?? [])));
         }
 
-        // The other packages it requires (omnisense/omnihub) where the host has their files in
-        // vendor/ without having installed them: the omnibase harness mounts their checkouts there
-        // (an override of compose.checkouts.yml) until its image installs them.
+        // The other packages it requires or suggests (omnisense/omnihub, omnitrade/paypal) where the
+        // host has their files in vendor/ without having installed them: the omnibase harness mounts
+        // their checkouts there (an override of compose.checkouts.yml) until its image installs them.
         $vendor = \dirname(__DIR__, 3);
-        foreach (array_keys($composer(__DIR__.'/..')['require'] ?? []) as $package) {
+        foreach (array_keys(($composer(__DIR__.'/..')['require'] ?? []) + ($composer(__DIR__.'/..')['suggest'] ?? [])) as $package) {
             if (!is_file($vendor.'/autoload.php') || !str_contains($package, '/') || str_starts_with($package, 'omnibase/') || !is_file($vendor.'/'.$package.'/composer.json')
                 || !$loader instanceof \Composer\Autoload\ClassLoader || \Composer\InstalledVersions::isInstalled($package)) {
                 continue;

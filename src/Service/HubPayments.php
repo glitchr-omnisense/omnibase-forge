@@ -4,6 +4,7 @@ namespace Base\Forge\Service;
 
 use Base\Entity\User;
 use Base\Forge\Entity\PaymentCustomer;
+use Base\Forge\Entity\PaymentSetup;
 use Base\Forge\Exception\HubPurchaseException;
 use Base\Marketplace\Entity\Order\Method\PaymentMethod;
 use Base\Marketplace\Payment\Omnitrade\OmnitradeGateway;
@@ -14,6 +15,7 @@ use Omnitrade\Exception\ProviderException;
 use Omnitrade\Model\Customer;
 use Omnitrade\Model\MethodSetup;
 use Omnitrade\Model\SavedMethod;
+use Omnitrade\Request\CompleteMethodSetup;
 use Omnitrade\Request\FetchSavedMethods;
 use Omnitrade\Request\RemoveSavedMethod;
 use Omnitrade\Request\SetupMethod;
@@ -23,15 +25,24 @@ use Symfony\Component\Lock\LockFactory;
 /**
  * The payment methods a hub client's user saves once and buys with (plan items 16.2 and 16.4):
  * on the provider's hosted page, through the omnitrade gateway forge.hub.payment_gateway names
- * (omnisense/omnitrade 1.1's SetupMethod), for a customer of theirs at the provider - the only
+ * (omnisense/omnitrade 1.2's SetupMethod and CompleteMethodSetup), for a customer of theirs at the provider - the only
  * thing kept here (PaymentCustomer). The methods are the provider's, read from it each time: the
  * forge never sees nor stores a card number.
  *
  * A user's customer is made under a lock of their own, so that two pages opened at once do not
  * make them two customers at the provider.
+ *
+ * Each setup is kept (PaymentSetup) until the buyer is back on the return page, which completes
+ * it (complete(): omnisense/omnitrade 1.2's CompleteMethodSetup whenever the gateway supports it -
+ * a read at Stripe, the approved setup turned into a saved method at PayPal; the same code for
+ * every provider). A buyer who closed the tab before the provider sent them back has theirs
+ * completed the next time their methods are listed (methods()), for three hours.
  */
 class HubPayments
 {
+    /** How long a setup not completed yet is asked again when the methods are listed. */
+    public const SETUP_LIFETIME = '3 hours';
+
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly LockFactory $locks,
@@ -55,7 +66,7 @@ class HubPayments
     /**
      * The marketplace's bridge to that gateway, able to save methods.
      *
-     * @throws HubPurchaseException payments_unavailable (503): no gateway, no omnitrade 1.1, keys missing
+     * @throws HubPurchaseException payments_unavailable (503): no gateway, no omnitrade, keys missing
      */
     public function bridge(): OmnitradeGateway
     {
@@ -98,6 +109,7 @@ class HubPayments
      */
     public function methods(User $user): array
     {
+        $this->completePending($user);
         $customer = $this->customer($user);
         if (null === $customer) {
             return [];
@@ -111,11 +123,12 @@ class HubPayments
 
     /**
      * The provider's page where the user saves a method, for their customer there - made now
-     * when they have none, and kept.
+     * when they have none, and kept. With $token, the setup is kept under it (PaymentSetup) for
+     * the return page to complete; $returnUrl is expected to carry it (?setup=<token>).
      *
      * @throws HubPurchaseException payments_unavailable (503)
      */
-    public function setup(User $user, string $returnUrl, ?string $locale = null): MethodSetup
+    public function setup(User $user, string $returnUrl, ?string $locale = null, ?string $token = null): MethodSetup
     {
         $bridge = $this->bridge();
         $lock = $this->locks->createLock('forge-hub-account-'.$user->getId(), 60);
@@ -138,12 +151,97 @@ class HubPayments
             }
             if (null === $customer && null !== $setup->customer) {
                 $this->entityManager->persist(new PaymentCustomer($user, (string) $this->gatewayName(), $setup->customer));
-                $this->entityManager->flush();
             }
+            if (null !== $token) {
+                $this->entityManager->persist(new PaymentSetup($user, (string) $this->gatewayName(), $token, $setup->reference, $setup->customer ?? $customer?->getReference()));
+            }
+            $this->entityManager->flush();
 
             return $setup;
         } finally {
             $lock->release();
+        }
+    }
+
+    /** The setup a return URL names, or null. */
+    public function findSetup(string $token): ?PaymentSetup
+    {
+        $setup = $this->entityManager->getRepository(PaymentSetup::class)->findOneBy(['token' => $token]);
+
+        return $setup instanceof PaymentSetup ? $setup : null;
+    }
+
+    /**
+     * The setup completed at the provider now that its buyer is back (CompleteMethodSetup, when the
+     * gateway supports it; one that saves on its own page needs nothing more): saved, or not saved
+     * when the buyer did not finish it ($final: they came back without - else it stays pending,
+     * they may still be on the page). Flushed. Asked again of a setup already completed, it says
+     * nothing new.
+     *
+     * @return SavedMethod|null the method saved, when the provider answers it
+     *
+     * @throws HubPurchaseException unknown_payment_method (404): not this customer's setup (marked not saved);
+     *                              payments_unavailable (503): the provider cannot be asked (kept pending)
+     */
+    public function complete(PaymentSetup $setup, bool $final = true): ?SavedMethod
+    {
+        if (!$setup->isPending()) {
+            return null;
+        }
+        $gateway = $this->bridge()->gateway();
+        if (!$gateway->supports(CompleteMethodSetup::class)) {
+            $setup->markSaved();
+            $this->entityManager->flush();
+
+            return null;
+        }
+        try {
+            $method = $gateway->execute(new CompleteMethodSetup($setup->getReference(), $setup->getCustomer()))->getMethod();
+            $setup->markSaved();
+        } catch (ProviderException $e) {
+            if (CompleteMethodSetup::NOT_COMPLETED === $e->providerCode) {
+                if ($final) {
+                    $setup->markNotSaved();
+                    $this->entityManager->flush();
+                }
+
+                return null;
+            }
+            if (CompleteMethodSetup::NOT_THIS_CUSTOMER === $e->providerCode) {
+                $setup->markNotSaved();
+                $this->entityManager->flush();
+
+                throw new HubPurchaseException(HubPurchaseException::UNKNOWN_PAYMENT_METHOD, 404);
+            }
+
+            throw new HubPurchaseException(HubPurchaseException::PAYMENTS_UNAVAILABLE, 503);
+        } catch (OmnitradeException) {
+            throw new HubPurchaseException(HubPurchaseException::PAYMENTS_UNAVAILABLE, 503);
+        }
+        $this->entityManager->flush();
+
+        return $method;
+    }
+
+    /**
+     * The user's setups still pending on this gateway: completed when younger than SETUP_LIFETIME
+     * (a buyer who saved the method and closed the tab before being sent back), given up older.
+     * Nothing it meets stops the listing.
+     */
+    private function completePending(User $user): void
+    {
+        $since = new \DateTimeImmutable('-'.self::SETUP_LIFETIME);
+        foreach ($this->entityManager->getRepository(PaymentSetup::class)->findBy(['user' => $user, 'gateway' => $this->gatewayName(), 'state' => PaymentSetup::PENDING], ['id' => 'ASC']) as $setup) {
+            $young = $setup->getCreatedAt() > $since;
+            try {
+                $this->complete($setup, !$young);
+            } catch (HubPurchaseException) {
+                // Not this customer's (marked not saved), or the provider unreachable (asked again next time).
+            }
+            if (!$young && $setup->isPending()) {
+                $setup->markNotSaved();
+                $this->entityManager->flush();
+            }
         }
     }
 
@@ -158,7 +256,7 @@ class HubPayments
         try {
             $this->bridge()->gateway()->execute(new RemoveSavedMethod($customer->getReference(), $reference));
         } catch (ProviderException $e) {
-            if ('not_this_customer' === $e->providerCode || 'resource_missing' === $e->providerCode) {
+            if (CompleteMethodSetup::NOT_THIS_CUSTOMER === $e->providerCode || 'resource_missing' === $e->providerCode) {
                 throw new HubPurchaseException(HubPurchaseException::UNKNOWN_PAYMENT_METHOD, 404);
             }
 

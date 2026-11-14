@@ -211,10 +211,21 @@ Stripe's `cus_...`) and reads the methods from the provider each time.
 | Request | Answer |
 |---|---|
 | `GET /upm/-/hub/payment-methods` | `{"gateway": "stripe", "methods": [{"id": "pm_...", "type": "card", "label": "Visa •••• 4242", "brand": "visa", "last4": "4242", "expires": "2030-12", "expired": false}]}` - none before one is saved |
-| `POST /upm/-/hub/payment-methods` | 201 `{"id": "cs_...", "url": "https://checkout.stripe.com/..."}`: the provider's page to open - Forge Hub's webview, or the system browser from the editor. It sends the user back to `/hub/payment-methods/saved` ("go back to Unity"); the client then lists the methods again |
+| `POST /upm/-/hub/payment-methods` | 201 `{"id": "cs_...", "url": "https://checkout.stripe.com/..."}`: the provider's page to open - Forge Hub's webview, or the system browser from the editor. It sends the user back to `/hub/payment-methods/saved?setup=<token>` ("go back to Unity"), which completes the setup; the client then lists the methods again |
 | `DELETE /upm/-/hub/payment-methods/{id}` | 204; 404 `unknown_payment_method` for a method that is not the user's (nothing is removed) |
 
 Changing a method is adding the new one and removing the old one.
+
+**Completing the setup** (since 1.2.0, with omnisense/omnitrade 1.2). A provider may need a last
+step once its buyer is back: PayPal turns the approved setup into a saved method then, Stripe only
+reads what its page saved. The forge does it, the same way for every provider (the core's
+`CompleteMethodSetup`), when the provider sends the buyer back to the return page - whose address
+carries a random token naming that setup, so no session is needed in that browser. The page says
+"saved", "not saved" (the buyer gave up: nothing saved, nothing charged) or "being saved" (the
+provider could not be asked). A buyer who closed the tab before being sent back has their setup
+completed the next time the client lists the methods (`GET /upm/-/hub/payment-methods`), for three
+hours. **For a client, nothing changes**: open `url`, then list the methods again, as before; the
+answers, fields and errors are the same. The new return address is the forge's own business.
 
 ### The confirmation, then the purchase
 
