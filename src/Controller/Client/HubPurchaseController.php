@@ -88,6 +88,8 @@ class HubPurchaseController extends AbstractController
                 'store' => $this->catalog->manifest()['name'],
             ] + $this->purchases->quote($user, $offer) + [
                 'method' => [] !== $methods ? HubPayments::describe($methods[0]) : null,
+                // What the confirmation shows its user to accept, and the purchase sends back (docs/hub.md).
+                'consent' => $this->purchases->consent($user, $offer, $query->locale),
             ]);
         });
     }
@@ -95,7 +97,8 @@ class HubPurchaseController extends AbstractController
     /**
      * The purchase, as its user confirmed it, sent with an Idempotency-Key: 201 paid or waiting
      * (requires_action: the bank's page in "url"), 402 refused, 409 price_changed (with the price
-     * now) or payment_method_required, 422 the key sent before with another body; the same key
+     * now), consent_changed (the statements to show again) or payment_method_required, 422
+     * consent_required (a statement missing or not true) or the key sent before with another body; the same key
      * again answers the same purchase as it stands (200, Idempotent-Replayed: true), charging
      * nothing more.
      */

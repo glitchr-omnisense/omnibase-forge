@@ -2,6 +2,40 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-14
+
+### Added
+
+- One-click purchases carry their buyer's statements - the terms of sale accepted, immediate supply asked for and
+  the right of withdrawal waived (Code de la consommation L221-28 13°) - in the version of the texts shown
+  (docs/hub.md, "The statements"). Prepared for a lawyer's review; omnibase/marketplace's docs/withdrawal.md lists
+  the assumptions.
+  - `GET /upm/-/hub/quote` gives `consent` (`required`, `version`, `locale`, `terms_url`, `statements[]` with `id`,
+    `text`, `hash`, `url`) and takes an optional `locale`.
+  - `POST /upm/-/hub/purchases` takes `consent` (`version`, `locale`, and each statement listed: `true`). Refused
+    without it: `422 consent_required` (`missing`, `consent`); another version: `409 consent_changed` (`consent`).
+    Nothing charged, no purchase made. Idempotent replays, `price_changed`, 3-D Secure and the webhook unchanged.
+  - Accepted, the statements are recorded on the purchase's order (marketplace's `Entity\Order\Consent`, channel
+    `hub`) and repeated in marketplace's order confirmation e-mail once paid.
+  - `forge.hub.consent_required` (default true). False: a client that sends none (Forge Store 1.7.0, Forge Hub
+    1.5.0) buys as in 1.0, nothing recorded.
+  - `LicenseOffer` is digital content (`Withdrawal::DIGITAL_CONTENT`) and `HourPack` a service
+    (`Withdrawal::SERVICE`) by default: the shop's checkout asks the matching statement for them too.
+  - `HubPurchaseTest`: the statements in the quote, the purchase without them, with one not true, another version,
+    accepted (the record, the e-mail), the requirement off, the terms when the host names them.
+
+### Changed
+
+- Requires `omnibase/marketplace` ^1.1.
+- Forge Store 1.7.0 and Forge Hub 1.5.0 get `422 consent_required` on a purchase while `forge.hub.consent_required`
+  is on ("The forge refused: consent_required."): their users buy on the site until the clients send the
+  statements, or the host turns the requirement off.
+
+### Schema
+
+- None of the forge's own; omnibase/marketplace 1.1's table `marketplace_order_consent` and the products' column
+  `withdrawal`: the host's migration.
+
 ## [1.0.1] - 2026-11-14
 
 ### Fixed

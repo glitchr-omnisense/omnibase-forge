@@ -38,7 +38,7 @@
         "doctrine/orm": "^2.15|^3.0",
         "git/git-bundle": "^1.0",
         "omnibase/admin": "^1.0",
-        "omnibase/marketplace": "^1.0",
+        "omnibase/marketplace": "^1.1",
         "omnibridge/symfony": "^1.1",
         "omnisense/omnibase": "^5.1",
         "omnisense/omnihub": "^1.0",

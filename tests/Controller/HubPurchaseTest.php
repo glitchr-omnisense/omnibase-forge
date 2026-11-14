@@ -25,6 +25,11 @@ use Base\Marketplace\Entity\Store;
 use Base\Marketplace\Enum\OrderState;
 use Base\Marketplace\Payment\Omnitrade\OmnitradeGateways;
 use Base\Marketplace\Service\Checkout;
+use Base\Marketplace\Service\Consents;
+use Base\Marketplace\Entity\Order\Consent;
+use Symfony\Component\Mime\Email;
+use Symfony\Component\Routing\RouterInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Base\Marketplace\Service\Pricing as ShopPricing;
 use Base\Marketplace\Service\RegionResolver;
 use Doctrine\ORM\EntityManagerInterface;
@@ -66,6 +71,8 @@ class HubPurchaseTest extends ForgeWebTestCase
     private Software $package;
     /** @var list<int> the payment methods made, removed after */
     private array $methods = [];
+    /** @var array<string, mixed>|null what a client sends once its user ticked every statement the quote listed */
+    private ?array $consent = null;
 
     protected function setUp(): void
     {
@@ -224,10 +231,10 @@ class HubPurchaseTest extends ForgeWebTestCase
         $purchases = new HubPurchases(
             $container->get(EntityManagerInterface::class), $container->get(HubPayments::class), $container->get(Checkout::class), $container->get(ShopPricing::class),
             $container->get(RegionResolver::class), $container->get(LicenseIssuer::class), $container->get(UpmRegistry::class), $container->get(LockFactory::class),
-            $container->get(HubPurchaseCharges::class), null, 0.3,
+            $container->get(HubPurchaseCharges::class), null, 0.3, $container->get(Consents::class),
         );
         $buyer = $container->get(EntityManagerInterface::class)->find($this->buyer::class, $this->buyer->getId());
-        $request = new PurchaseRequest($this->offer->getId(), 4900, 'EUR');
+        $request = new PurchaseRequest($this->offer->getId(), 4900, 'EUR', null, $this->consent);
 
         // Another request of this user holds their purchase lock (another process, as flock sees it).
         $held = $container->get(LockFactory::class)->createLock('forge-hub-purchase-'.$buyer->getId(), 120);
@@ -268,6 +275,89 @@ class HubPurchaseTest extends ForgeWebTestCase
         self::assertSame(['error' => 'unknown_offer'], $this->json('GET', '/upm/-/hub/quote?offer=999999999', $auth, null, 404));
     }
 
+    public function testAPurchaseCarriesItsStatementsInTheVersionTheQuoteShowed(): void
+    {
+        $auth = ['HTTP_AUTHORIZATION' => 'Bearer '.$this->link()];
+        $this->json('POST', '/upm/-/hub/payment-methods', $auth, null, 201);
+        $this->card = 'paid';
+
+        // The quote: the texts to show, their version, required. A licence is digital content supplied at once.
+        $consent = $this->json('GET', '/upm/-/hub/quote?offer='.$this->offer->getId().'&locale=en', $auth)['consent'];
+        $text = static::getContainer()->get(TranslatorInterface::class)->trans('@marketplace.consent.immediate_supply', [], null, 'en');
+        self::assertTrue($consent['required']);
+        self::assertSame('en', $consent['locale']);
+        self::assertSame([['id' => 'immediate_supply', 'text' => $text, 'hash' => hash('sha256', $text)]], $consent['statements']);
+        self::assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $consent['version']);
+        $buy = fn (?array $sent, int $status) => $this->json('POST', '/upm/-/hub/purchases', $auth + ['HTTP_IDEMPOTENCY_KEY' => 'buy-'.bin2hex(random_bytes(8))], ['offer' => $this->offer->getId(), 'price' => 4900, 'currency' => 'EUR', 'consent' => $sent], $status);
+
+        // Without its statements (a client that does not know them), one not true, or another version: refused, nothing charged.
+        $none = $buy(null, 422);
+        self::assertSame(['consent_required', ['immediate_supply']], [$none['error'], $none['missing']]);
+        self::assertSame('immediate_supply', $none['consent']['statements'][0]['id'], 'the texts to show come with the refusal');
+        $declined = $buy(['immediate_supply' => false] + self::accepted($consent), 422);
+        self::assertSame(['consent_required', ['immediate_supply']], [$declined['error'], $declined['missing']]);
+        $changed = $buy(['version' => str_repeat('0', 64)] + self::accepted($consent), 409);
+        self::assertSame('consent_changed', $changed['error']);
+        self::assertSame($consent['version'], $changed['consent']['version'], 'the current texts, to show again');
+        self::assertSame([], $this->sentAll('POST', '/v1/payment_intents'), 'nothing charged');
+        self::assertNull(static::getContainer()->get(EntityManagerInterface::class)->getRepository(HubPurchase::class)->findOneBy(['user' => $this->buyer]), 'no purchase made');
+
+        // Accepted as shown: paid, the statement recorded on the order, word for word, and confirmed by e-mail.
+        $bought = $buy(self::accepted($consent), 201);
+        self::assertSame('paid', $bought['status']);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $order = $em->getRepository(Order::class)->findOneBy(['reference' => $bought['order']]);
+        $records = $em->getRepository(Consent::class)->findBy(['order' => $order]);
+        self::assertCount(1, $records);
+        self::assertSame(['immediate_supply', $text, hash('sha256', $text), 'en', Consent::HUB], [$records[0]->getStatement(), $records[0]->getText(), $records[0]->getHash(), $records[0]->getLocale(), $records[0]->getChannel()]);
+        $mails = array_values(array_filter(self::getMailerMessages(), static fn ($m) => $m instanceof Email && str_contains((string) $m->getSubject(), $bought['order'])));
+        self::assertCount(1, $mails, 'the order\'s confirmation, the durable medium');
+        self::assertSame($this->buyer->getEmail(), $mails[0]->getTo()[0]->getAddress());
+        self::assertStringContainsString($text, html_entity_decode((string) $mails[0]->getHtmlBody(), \ENT_QUOTES));
+    }
+
+    public function testWithTheRequirementOffAnOlderClientBuysAsBeforeAndTheTermsAreAskedWhenTheHostNamesThem(): void
+    {
+        $this->json('POST', '/upm/-/hub/payment-methods', ['HTTP_AUTHORIZATION' => 'Bearer '.$this->link()], null, 201);
+        $this->card = 'paid';
+        $container = static::getContainer();
+        $em = $container->get(EntityManagerInterface::class);
+        // The host names its terms (marketplace.consent.terms_route): any route stands for them here.
+        $consents = new Consents($em, $container->get(TranslatorInterface::class), $container->get(RouterInterface::class), 'forge_hub_quote', [], '2026-11-14');
+        $purchases = fn (bool $required) => new HubPurchases(
+            $em, $container->get(HubPayments::class), $container->get(Checkout::class), $container->get(ShopPricing::class),
+            $container->get(RegionResolver::class), $container->get(LicenseIssuer::class), $container->get(UpmRegistry::class), $container->get(LockFactory::class),
+            $container->get(HubPurchaseCharges::class), null, 0.3, $consents, $required,
+        );
+        $buyer = $em->find($this->buyer::class, $this->buyer->getId());
+        $offer = $em->find(LicenseOffer::class, $this->offer->getId());
+
+        $consent = $purchases(true)->consent($buyer, $offer, 'fr');
+        self::assertSame(['terms', 'immediate_supply'], array_column($consent['statements'], 'id'));
+        self::assertSame($consent['terms_url'], $consent['statements'][0]['url']);
+        try {
+            $purchases(true)->buy($buyer, new PurchaseRequest($offer->getId(), 4900, 'EUR', null, ['immediate_supply' => false] + self::accepted($consent)), 'buy-terms-1');
+            self::fail('both statements are required');
+        } catch (HubPurchaseException $e) {
+            self::assertSame(['consent_required', 422, ['immediate_supply']], [$e->error, $e->status, $e->data['missing']]);
+        }
+
+        // forge.hub.consent_required off: a purchase without statements goes through, nothing recorded.
+        $old = $purchases(false)->buy($buyer, new PurchaseRequest($offer->getId(), 4900, 'EUR'), 'buy-old-client-1');
+        self::assertSame(HubPurchase::PAID, $old->getStatus());
+        $order = $em->getRepository(Order::class)->findOneBy(['reference' => $old->getOrderReference()]);
+        self::assertSame([], $em->getRepository(Consent::class)->findBy(['order' => $order]));
+        self::assertFalse($purchases(false)->consent($buyer, $offer)['required'], 'the quote says so');
+
+        // A newer client still sends them: recorded, terms' version included.
+        $new = $purchases(false)->buy($buyer, new PurchaseRequest($offer->getId(), 4900, 'EUR', null, self::accepted($consent)), 'buy-new-client-1');
+        $order = $em->getRepository(Order::class)->findOneBy(['reference' => $new->getOrderReference()]);
+        $records = $em->getRepository(Consent::class)->findBy(['order' => $order], ['id' => 'ASC']);
+        self::assertSame(['terms', 'immediate_supply'], array_map(static fn (Consent $c) => $c->getStatement(), $records));
+        self::assertSame(['2026-11-14', 'fr'], [$records[0]->getTermsVersion(), $records[0]->getLocale()]);
+    }
+
     /** The device flow, as the editor and its user go through it: the account's token. */
     private function link(): string
     {
@@ -278,7 +368,27 @@ class HubPurchaseTest extends ForgeWebTestCase
         self::assertSame(200, $this->request('POST', '/hub/link', [], null, ['code' => $device['user_code'], '_token' => $csrf])->getStatusCode());
         $this->cookies = [];
 
-        return $this->json('POST', '/upm/-/hub/token', [], ['device_code' => $device['device_code']])['account_token'];
+        $token = $this->json('POST', '/upm/-/hub/token', [], ['device_code' => $device['device_code']])['account_token'];
+        $this->consent = self::accepted($this->json('GET', '/upm/-/hub/quote?offer='.$this->offer->getId(), ['HTTP_AUTHORIZATION' => 'Bearer '.$token])['consent']);
+
+        return $token;
+    }
+
+    /**
+     * What a client sends back once its user ticked every statement the quote listed.
+     *
+     * @param array<string, mixed> $consent the quote's consent
+     *
+     * @return array<string, mixed>
+     */
+    private static function accepted(array $consent): array
+    {
+        $sent = ['version' => $consent['version'], 'locale' => $consent['locale']];
+        foreach ($consent['statements'] as $statement) {
+            $sent[$statement['id']] = true;
+        }
+
+        return $sent;
     }
 
     /** A licensed Unity package sold in the shop, a buyer, and the shop's card method on the omnitrade gateway "stripe". */
@@ -387,6 +497,10 @@ class HubPurchaseTest extends ForgeWebTestCase
     /** @param array<string, mixed>|null $body */
     private function json(string $method, string $uri, array $server = [], ?array $body = null, int $status = Response::HTTP_OK): array
     {
+        // A purchase as a client that shows the statements sends it; 'consent' => null: as an older client (none).
+        if ('POST' === $method && '/upm/-/hub/purchases' === $uri && null !== $body) {
+            $body = \array_key_exists('consent', $body) ? array_filter($body, static fn ($value) => null !== $value) : $body + ['consent' => $this->consent];
+        }
         $response = $this->request($method, $uri, $server + (null !== $body ? ['CONTENT_TYPE' => 'application/json'] : []), null !== $body ? json_encode($body) : null);
         self::assertSame($status, $response->getStatusCode(), $method.' '.$uri.': '.substr((string) $response->getContent(), 0, 2000));
 

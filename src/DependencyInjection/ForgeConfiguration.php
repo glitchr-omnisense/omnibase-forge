@@ -60,6 +60,8 @@ class ForgeConfiguration implements ConfigurationInterface
                             ->info('Whether the clients offer to buy: the licensed packages\' offers, bought on this site and linked to the editor by a device code.')->end()
                         ->scalarNode('payment_gateway')->defaultValue('stripe')
                             ->info('The omnitrade gateway (omnitrade.gateways.<name>) the clients\' one-click purchases go through: payment methods saved on its page, charged off-session (docs/hub.md). The shop needs a payment method naming it (gatewayFactory). Null: no one-click purchase.')->end()
+                        ->booleanNode('consent_required')->defaultTrue()
+                            ->info('Whether a one-click purchase must carry its buyer\'s statements - the terms of sale accepted, immediate supply asked for and the right of withdrawal waived - in the version GET /upm/-/hub/quote gave (omnibase/marketplace\'s marketplace.consent; docs/hub.md). False: a client that sends none (Forge Store 1.7.0, Forge Hub 1.5.0) buys as in 1.0, nothing recorded - its consumer buyers keep their 14 days.')->end()
                     ->end()
                 ->end()
             ->end();

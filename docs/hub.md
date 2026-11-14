@@ -172,13 +172,14 @@ Changing a method is adding the new one and removing the old one.
 
 1. `GET /upm/-/hub/quote?offer=<id>` (the offer's `id` in the catalogue):
    `{"offer", "title", "software", "package", "store", "price", "currency",
-   "method"}` - `price` is what the order charges this user (minor units, VAT
+   "method", "consent"}` - `consent` the statements to show (below), `price` is what the order charges this user (minor units, VAT
    and promotions included: it may differ from the catalogue's `price`, which
    is before VAT), `store` the manifest's `name`, `method` the saved method it
    would be charged to (null: none saved). The client shows price, currency
    and store name; one click opens the confirmation, one confirms it.
 2. `POST /upm/-/hub/purchases` with `{"offer": <id>, "price": <the quote's
-   price>, "currency": "EUR", "method": "pm_..."}` (`method` optional: the
+   price>, "currency": "EUR", "method": "pm_...", "consent": {...}}` (`consent`: the statements
+   ticked, below; `method` optional: the
    first one that has not expired) and an `Idempotency-Key` header (8 to 64 of
    `A-Za-z0-9_.:-`, one per confirmation, kept and sent again on a retry):
 
@@ -190,6 +191,8 @@ Changing a method is adding the new one and removing the old one.
 | 200 | the same purchase, header `Idempotent-Replayed: true` | the same key again: nothing charged again |
 | 402 | `{"error": "payment_refused", "status": "refused", "reason", ...}` | the card was refused; nothing charged |
 | 409 | `{"error": "price_changed", "offer", "price", "currency"}` | the amount is no longer the one confirmed: show the new one, confirm again (new key) |
+| 409 | `{"error": "consent_changed", "consent"}` | the statements shown are no longer the forge's: show them again (see below) |
+| 422 | `{"error": "consent_required", "missing", "consent"}` | the statements not sent, or not all `true` (see below) |
 | 409 | `{"error": "payment_method_required"}` | no saved method: save one first |
 | 409 | `{"error": "purchase_in_progress"}` | another purchase of this user is still running (15 s): retry with the same key |
 | 422 | `{"error": "unknown_payment_method"}`, `{"error": "idempotency_key_reused"}`, `{"error": "invalid_request", "violations"}` | a method that is not the user's; the key sent before with another offer, price or currency; a body that does not read |
@@ -204,6 +207,90 @@ Changing a method is adding the new one and removing the old one.
    device flow): the client writes it into `~/.upmconfig.toml`, installs
    `package` from the registry, and activates through `licenses.activate` - a
    v2 token bound to `registry` and `package` ([licensing.md](licensing.md)).
+
+### The statements: terms of sale and withdrawal
+
+Since 1.1.0 (with omnibase/marketplace 1.1). A consumer may withdraw from a distance contract
+within 14 days; for digital content supplied at once - a licence - the right is lost only if
+they asked for immediate supply and acknowledged losing it before paying (Code de la
+consommation L221-28 13°). The clients therefore show the statements the forge gives, each with
+its own box, none ticked, and send back what their user ticked. The texts are not the clients':
+they are the host's (omnibase/marketplace's `@marketplace.consent.*` translations, which a host
+words in its own catalogue) and the forge serves them.
+
+What a purchase asks (`Base\Marketplace\Service\Consents`):
+
+| `id` | Asked when | Text (en, default) |
+|---|---|---|
+| `terms` | the host names its terms (`marketplace.consent.terms_route`) | "I have read and accept the terms of sale." - with `url`, the terms' page, to link |
+| `immediate_supply` | the offer is digital content: every licence offer, unless the host marks it otherwise (`Product::setWithdrawal()`) | "I ask for the digital content to be supplied immediately, as soon as I pay, and I acknowledge that I thereby lose my right of withdrawal." |
+| `early_service` | a service (hour packs; not sold in one click today) | see omnibase/marketplace's docs/withdrawal.md |
+
+With `marketplace.consent.businesses: skip`, a buyer with a confirmed VAT number is not asked
+`immediate_supply` nor `early_service`; `terms` still is.
+
+**The quote** - `GET /upm/-/hub/quote?offer=<id>[&locale=<language>]` - carries `consent`:
+
+```json
+"consent": {
+    "required": true,
+    "version": "3f1c...e9 (64 hex)",
+    "locale": "fr",
+    "terms_url": "https://shop.example.com/cgv",
+    "statements": [
+        {"id": "terms", "text": "J'ai lu et j'accepte les conditions générales de vente.", "hash": "<sha256 of text>", "url": "https://shop.example.com/cgv"},
+        {"id": "immediate_supply", "text": "Je demande la fourniture immédiate du contenu numérique, dès le paiement, et je reconnais perdre ainsi mon droit de rétractation.", "hash": "<sha256 of text>"}
+    ]
+}
+```
+
+- `locale` (optional query): the language the texts are worded in, `[a-z]{2,3}` with an optional
+  region (`fr`, `en_GB`); without it, the request's (the host's locale resolution; the clients
+  send no `Accept-Language` today, so the host's default). A language the host has no text for
+  falls back as its catalogues do; `consent.locale` says which was asked.
+- `statements`: in the order to show them; `text` is shown as is (plain text, no markup), one box
+  each, **none ticked beforehand**; `url`, when present, is linked beside the text (`terms`).
+- `version`: the SHA-256 of the statements' ids, their texts' hashes and the terms' version
+  (`marketplace.consent.terms_version`). Another wording, another language, a statement more or
+  less: another version.
+- `required`: whether this forge refuses a purchase without them (`forge.hub.consent_required`
+  and at least one statement). `statements: []` (nothing asked): send nothing.
+- `terms_url`: the terms' page (the `terms` statement's `url`), absent when the host names none.
+
+**The purchase** - `POST /upm/-/hub/purchases` - adds `consent`, as its user ticked the boxes:
+
+```json
+{"offer": 7, "price": 5880, "currency": "EUR", "method": "pm_...",
+ "consent": {"version": "<the quote's consent.version>", "locale": "<the quote's consent.locale>",
+             "terms": true, "immediate_supply": true}}
+```
+
+Each statement the quote listed is a key whose value is JSON `true` (not `"1"`, not `1`).
+`version` and `locale` are the quote's, unchanged: the forge words the statements again in
+`locale` and compares their version with `version`. Pay stays disabled until every box is ticked.
+
+| Status | Body | Meaning |
+|---|---|---|
+| 422 | `{"error": "consent_required", "missing": ["immediate_supply"], "consent": {...as in the quote}}` | `consent` absent while required, or a listed statement not `true`: nothing charged, no purchase made. Show `consent` and ask again |
+| 409 | `{"error": "consent_changed", "consent": {...the texts now}}` | `version` is not the version of the texts now (the host changed them, or another `locale`): nothing charged. Show the new texts, untick the boxes, ask again with a new Idempotency-Key |
+
+The checks run after the replay of an `Idempotency-Key` already used (a replay answers the
+purchase made, as before, whatever `consent` says) and after `price_changed`: a request whose
+price changed answers `409 price_changed` first. `402`, `requires_action`, the webhook and the key
+handed over once are unchanged.
+
+Accepted, the statements are recorded on the purchase's order (`Base\Marketplace\Entity\Order\Consent`,
+channel `hub`: the text word for word, its hash, its language, the terms' version, the time; no IP
+address, no user agent), and once the order is paid, its buyer receives marketplace's order
+confirmation e-mail, which repeats them - the confirmation on a durable medium (L221-13).
+
+**Older clients.** Forge Store 1.7.0 and Forge Hub 1.5.0 send no `consent` and ignore the quote's.
+With `forge.hub.consent_required: true` (the default) their purchase of a licence answers
+`422 consent_required`, nothing is charged, and they say "The forge refused: consent_required."
+(Forge Store) or "the forge refused: consent_required" (Forge Hub): their user buys on the site,
+whose checkout asks the statements. With `consent_required: false` they buy as in 1.0 and nothing is
+recorded: the consumer keeps the 14-day right of withdrawal on those purchases. A client that sends
+`consent` is checked either way.
 
 **Never charged twice.** A purchase is one row per user and idempotency key
 (`Entity\HubPurchase`), made under a lock of the user's (symfony/lock): a

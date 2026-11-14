@@ -5,6 +5,7 @@ namespace Base\Forge\Entity\Product;
 use Base\Database\Attribute\DiscriminatorEntry;
 use Base\Forge\Entity\Software;
 use Base\Marketplace\Entity\Product;
+use Base\Marketplace\Enum\Withdrawal;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -38,6 +39,16 @@ class LicenseOffer extends Product
     public function isShippable(): bool
     {
         return false;
+    }
+
+    /**
+     * Digital content supplied as soon as it is paid (a key, downloads): its buyer asks for
+     * immediate supply and acknowledges losing the right of withdrawal before paying
+     * (omnibase/marketplace's Service\Consents). setWithdrawal() says otherwise for one offer.
+     */
+    protected function defaultWithdrawal(): Withdrawal
+    {
+        return Withdrawal::DIGITAL_CONTENT;
     }
 
     public function getSoftware(): ?Software { return $this->software; }

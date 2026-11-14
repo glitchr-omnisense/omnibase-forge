@@ -53,7 +53,9 @@ Base\Forge\ForgeBundle::class => ['all' => true],
 
 With the routes below and the schema migrated, `/telechargements` lists the software and its releases and `/composer/packages.json`
 answers Composer. One-click purchases from Forge Store and Forge Hub also need `omnisense/omnitrade:^1.1` and a
-provider that saves payment methods (`omnitrade/stripe:^1.1`).
+provider that saves payment methods (`omnitrade/stripe:^1.1`); they carry the buyer's statements (terms of sale,
+immediate supply and the waived right of withdrawal) as [docs/hub.md](docs/hub.md#the-statements-terms-of-sale-and-withdrawal)
+describes, required by default (`forge.hub.consent_required`).
 
 ```yaml
 # config/routes.yaml

@@ -16,6 +16,10 @@ final class HubPurchaseException extends \RuntimeException
     public const IDEMPOTENCY_KEY_REUSED = 'idempotency_key_reused';
     public const PAYMENTS_UNAVAILABLE = 'payments_unavailable';
     public const PURCHASE_IN_PROGRESS = 'purchase_in_progress';
+    /** The buyer's statements missing, or one of them not true: nothing charged (422, with the texts). */
+    public const CONSENT_REQUIRED = 'consent_required';
+    /** The statements sent are not the version shown now (another wording, language, terms): show them again (409). */
+    public const CONSENT_CHANGED = 'consent_changed';
 
     /** @param array<string, mixed> $data */
     public function __construct(

@@ -24,6 +24,16 @@ final class PurchaseRequest
         /** A saved method's id (GET /upm/-/hub/payment-methods); the first one that has not expired when null. */
         #[Assert\Length(max: 255), Assert\Regex('/^[A-Za-z0-9_-]+$/')]
         public readonly ?string $method = null,
+        /**
+         * What its user stated, as the confirmation showed it (GET /upm/-/hub/quote's consent):
+         * {"version": "<the quote's consent.version>", "locale": "fr", "terms": true,
+         * "immediate_supply": true, "early_service": true} - each statement the quote listed, true.
+         * Read by HubPurchases (PurchaseConsent).
+         *
+         * @var array<string, mixed>|null
+         */
+        #[Assert\Type('array')]
+        public readonly ?array $consent = null,
     ) {
     }
 }

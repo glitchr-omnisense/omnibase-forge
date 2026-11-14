@@ -10,14 +10,17 @@ use Base\Forge\EventListener\HubPurchaseCharges;
 use Base\Forge\Exception\HubPurchaseException;
 use Base\Forge\Model\PurchaseRequest;
 use Base\Marketplace\Entity\Order;
+use Base\Marketplace\Entity\Order\Consent;
 use Base\Marketplace\Entity\Order\OrderItem;
 use Base\Marketplace\Entity\Order\Transaction;
 use Base\Marketplace\Enum\OrderState;
 use Base\Marketplace\Event\OrderPaidEvent;
 use Base\Marketplace\Event\PaymentCancelledEvent;
+use Base\Marketplace\Model\ConsentStatement;
 use Base\Marketplace\Payment\PaymentResult;
 use Base\Marketplace\Service\CartException;
 use Base\Marketplace\Service\Checkout;
+use Base\Marketplace\Service\Consents;
 use Base\Marketplace\Service\Pricing;
 use Base\Marketplace\Service\RegionResolver;
 use Doctrine\ORM\EntityManagerInterface;
@@ -25,6 +28,7 @@ use Omnitrade\Exception\OmnitradeException;
 use Omnitrade\Model\SavedMethod;
 use Omnitrade\Model\Status;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\Lock\LockFactory;
 
@@ -66,6 +70,10 @@ class HubPurchases
         private readonly ?LoggerInterface $logger = null,
         /** How long a purchase waits, in seconds, for the user's purchase before it to finish. */
         private readonly float $lockWait = 15.0,
+        /** What the buyer states before paying (omnibase/marketplace's marketplace.consent); null: nothing asked. */
+        private readonly ?Consents $consents = null,
+        /** forge.hub.consent_required: a purchase without its statements is refused (consent_required). */
+        #[Autowire('%forge.hub.consent_required%')] private readonly bool $consentRequired = true,
     ) {
     }
 
@@ -95,6 +103,18 @@ class HubPurchases
         $order = $this->order($user, $offer);
 
         return ['price' => (int) $order->getNetPrice(), 'currency' => strtoupper((string) $order->getCurrency())];
+    }
+
+    /**
+     * What the confirmation must show its user to accept, and send back with the purchase
+     * (docs/hub.md, "The statements"): the statements this offer asks of this user, worded in
+     * $locale (the request's when null), and their version.
+     *
+     * @return array{required: bool, version: string, locale: string, terms_url?: string, statements: list<array{id: string, text: string, hash: string, url?: string}>}
+     */
+    public function consent(User $user, LicenseOffer $offer, ?string $locale = null): array
+    {
+        return $this->consentBody($this->statements($this->order($user, $offer), $locale), $locale);
     }
 
     /**
@@ -129,6 +149,8 @@ class HubPurchases
                 throw new HubPurchaseException(HubPurchaseException::PRICE_CHANGED, 409, ['offer' => $offer->getId(), 'price' => $price, 'currency' => $currency]);
             }
 
+            $statements = $this->stated($order, $request->consent);
+
             $method = $this->method($user, $request->method);
             $paymentMethod = $this->payments->paymentMethod();
             $customer = $this->payments->customer($user) ?? throw new HubPurchaseException(HubPurchaseException::PAYMENT_METHOD_REQUIRED, 409);
@@ -141,6 +163,10 @@ class HubPurchases
             $this->entityManager->persist($purchase);
             $this->entityManager->flush(); // the order gets its reference
             $purchase->charging($method->reference, $order->getReference());
+            // What its user stated, on the order: confirmed with it by e-mail once paid (marketplace's OrderConfirmationListener).
+            if ([] !== $statements) {
+                $this->consents?->record($order, $statements, Consent::HUB);
+            }
             $this->entityManager->flush();
 
             $this->charges->charge($order, $purchase, $method->reference, $customer->getReference());
@@ -303,6 +329,63 @@ class HubPurchases
             'url' => HubPurchase::REQUIRES_ACTION === $purchase->getStatus() ? $purchase->getRedirectUrl() : null,
             'reason' => HubPurchase::REFUSED === $purchase->getStatus() ? $purchase->getReason() : null,
         ], static fn ($value) => null !== $value) + ($key ?? []);
+    }
+
+    /**
+     * The statements the purchase carries, checked against those the order asks now: each one
+     * true, in the version shown (the same texts, language and terms). None asked: none needed.
+     * None sent while forge.hub.consent_required is off: the purchase goes on, nothing recorded.
+     *
+     * @param array<string, mixed>|null $sent PurchaseRequest::$consent
+     *
+     * @return list<ConsentStatement> what to record
+     *
+     * @throws HubPurchaseException consent_required (422), consent_changed (409)
+     */
+    private function stated(Order $order, ?array $sent): array
+    {
+        $locale = \is_string($sent['locale'] ?? null) && preg_match('/^[a-z]{2,3}([_-][A-Za-z]{2,4})?$/', $sent['locale']) ? $sent['locale'] : null;
+        $statements = $this->statements($order, $locale);
+        if ([] === $statements) {
+            return [];
+        }
+        if (null === $sent) {
+            if (!$this->consentRequired) {
+                return [];
+            }
+            throw new HubPurchaseException(HubPurchaseException::CONSENT_REQUIRED, 422, ['missing' => array_map(static fn (ConsentStatement $s) => $s->id, $statements), 'consent' => $this->consentBody($statements, $locale)]);
+        }
+        if (($sent['version'] ?? null) !== $this->consents?->version($statements)) {
+            throw new HubPurchaseException(HubPurchaseException::CONSENT_CHANGED, 409, ['consent' => $this->consentBody($statements, $locale)]);
+        }
+        $missing = array_values(array_map(static fn (ConsentStatement $s) => $s->id, array_filter($statements, static fn (ConsentStatement $s) => true !== ($sent[$s->id] ?? null))));
+        if ([] !== $missing) {
+            throw new HubPurchaseException(HubPurchaseException::CONSENT_REQUIRED, 422, ['missing' => $missing, 'consent' => $this->consentBody($statements, $locale)]);
+        }
+
+        return $statements;
+    }
+
+    /** @return list<ConsentStatement> */
+    private function statements(Order $order, ?string $locale): array
+    {
+        return $this->consents?->statementsFor($order, $locale) ?? [];
+    }
+
+    /**
+     * @param list<ConsentStatement> $statements
+     *
+     * @return array{required: bool, version: string, locale: string, terms_url?: string, statements: list<array<string, string>>}
+     */
+    private function consentBody(array $statements, ?string $locale): array
+    {
+        return array_filter([
+            'required' => $this->consentRequired && [] !== $statements,
+            'version' => $this->consents?->version($statements) ?? '',
+            'locale' => $statements[0]->locale ?? $locale ?? '',
+            'terms_url' => $this->consents?->termsUrl(),
+            'statements' => array_map(static fn (ConsentStatement $s) => $s->toArray(), $statements),
+        ], static fn ($value) => null !== $value);
     }
 
     /** The order buying one unit of the offer, for the user, priced - not stored. */

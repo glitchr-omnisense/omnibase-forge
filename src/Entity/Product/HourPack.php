@@ -4,6 +4,7 @@ namespace Base\Forge\Entity\Product;
 
 use Base\Database\Attribute\DiscriminatorEntry;
 use Base\Marketplace\Entity\Product;
+use Base\Marketplace\Enum\Withdrawal;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -26,6 +27,15 @@ class HourPack extends Product
     public function isShippable(): bool
     {
         return false;
+    }
+
+    /**
+     * A service performed from the payment on (the hours credited at once): its buyer asks for it
+     * to begin before the withdrawal period ends (omnibase/marketplace's Service\Consents).
+     */
+    protected function defaultWithdrawal(): Withdrawal
+    {
+        return Withdrawal::SERVICE;
     }
 
     /** A quote's own pack is bought once; listed packs, as many as wanted. */
