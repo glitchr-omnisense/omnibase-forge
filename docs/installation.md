@@ -7,10 +7,10 @@ order: 10
 
 ## Requirements
 
-- PHP 8.4 (omnisense/omnibase 5.1 asks it), `ext-zip`;
+- PHP 8.4 (omnisense/omnibase 7.0 asks it), `ext-zip`;
 - doctrine/orm 2.15 or 3;
-- omnisense/omnibase 5.1 or later, omnibridge/symfony 1.1 or later,
-  omnibase/admin 1, omnibase/marketplace 1;
+- omnisense/omnibase 7.0 or later, omnibridge/symfony 3.0 or later,
+  omnibase/admin 2, omnibase/marketplace 2;
 - git/git-bundle 1.x, with the php-git2 extension (`ext-git2`), to read the
   repositories (releases, the project's history);
 - omnisense/omnihub 1.0 or later: the Unity registry's documents, the hub

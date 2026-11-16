@@ -26,8 +26,8 @@ A software forge for [omnisense/omnibase](https://github.com/glitchr-omnisense/o
 
 ## Requirements
 
-- PHP 8.4 (`omnisense/omnibase` 5.1 asks it), `ext-zip`
-- `omnisense/omnibase` 5.1, `omnibridge/symfony` 1.1, `omnibase/admin` and `omnibase/marketplace` 1.x, `omnisense/omnihub` 1.x
+- PHP 8.4 (`omnisense/omnibase` 7.0 asks it), `ext-zip`
+- `omnisense/omnibase` 7.0, `omnibridge/symfony` 3.0, `omnibase/admin` and `omnibase/marketplace` 2.x, `omnisense/omnihub` 1.x
 - `git/git-bundle` 1.0, with the **php-git2** extension ([RogerGee/php-git2](https://github.com/RogerGee/php-git2))
 - `omnisense/omnistate` with `omnistate/annuaire-entreprises`: they turn on omnibase/marketplace's company register, which checks the SIRETs typed in quote requests against the State's free register
 
