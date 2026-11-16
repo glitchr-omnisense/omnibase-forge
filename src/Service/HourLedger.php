@@ -7,7 +7,7 @@ use Base\Forge\Entity\HourCredit;
 use Base\Forge\Entity\TimeEntry;
 use Base\Forge\Enum\CreditReason;
 use Base\Forge\Repository\HourCreditRepository;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Contract\UnitOfWork;
 
 /**
  * A client's support hours: credited when they buy some, debited when time
@@ -16,7 +16,7 @@ use Doctrine\ORM\EntityManagerInterface;
 class HourLedger
 {
     public function __construct(
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
         private readonly HourCreditRepository $credits,
     ) {
     }
@@ -37,7 +37,7 @@ class HourLedger
     {
         $credit = new HourCredit($user, $minutes, $reason, $note);
         $credit->setOrderReference($orderReference);
-        $this->entityManager->persist($credit);
+        $this->unitOfWork->persist($credit);
 
         return $credit;
     }

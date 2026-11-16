@@ -2,6 +2,9 @@
 
 namespace Base\Forge\Service;
 
+use Base\Database\Attribute\Backend\Backends;
+use Base\Database\Backend\RowLocks;
+use Base\Database\Repository\Repositories;
 use Base\Entity\User;
 use Base\Forge\Entity\Product\HourPack;
 use Base\Forge\Entity\Quote;
@@ -11,8 +14,7 @@ use Base\Marketplace\Entity\Store;
 use Base\Marketplace\Service\Cart;
 use Base\Marketplace\Service\QuoteStatusGuard;
 use Base\Marketplace\Service\QuoteToOrder as MarketplaceQuoteToOrder;
-use Doctrine\DBAL\LockMode;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Contract\UnitOfWork;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
@@ -26,12 +28,14 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  */
 class QuoteToOrder extends MarketplaceQuoteToOrder
 {
+    /** The unit of work is the parent's (omnibase/marketplace's QuoteToOrder). */
     public function __construct(
-        EntityManagerInterface $entityManager,
+        UnitOfWork $unitOfWork,
+        private readonly Repositories $repositories,
         private readonly Cart $cart,
         #[Autowire('%forge.support_store%')] string $storeSlug = 'support',
     ) {
-        parent::__construct($entityManager, null, null, $storeSlug);
+        parent::__construct($unitOfWork, null, null, $storeSlug);
     }
 
     public function accept(AbstractQuote $quote, User $client): Order
@@ -46,18 +50,14 @@ class QuoteToOrder extends MarketplaceQuoteToOrder
             throw new \DomainException('quote.error.not_acceptable');
         }
 
-        $store = $this->entityManager->getRepository(Store::class)->findOneBy(['slug' => (string) $this->storeSlug])
+        $store = $this->repositories->of(Store::class)->findOneBy(['slug' => (string) $this->storeSlug])
             ?? throw new \LogicException(sprintf('The support store "%s" does not exist: create it in the back office.', $this->storeSlug));
 
         // The quote's row locked and read again: a double click (or two tabs)
         // made two one-off packs, the client paid twice, and the second pack,
-        // not the quote's, never marked it paid.
-        $this->entityManager->beginTransaction();
-        try {
-            if (null !== $quote->getId()) {
-                $this->entityManager->lock($quote, LockMode::PESSIMISTIC_WRITE);
-                $this->entityManager->refresh($quote);
-            }
+        // not the quote's, never marked it paid. A quote not written yet has
+        // no row to lock (the flush is its own transaction).
+        $accept = function () use ($quote, $client, $store): HourPack {
             $pack = $quote->getProduct();
             if (!$pack) {
                 $pack = new HourPack(null, $store, $quote->getTotal(), $quote->getCurrency());
@@ -67,19 +67,21 @@ class QuoteToOrder extends MarketplaceQuoteToOrder
                 $pack->setMinutes($quote->getTotalMinutes());
                 $pack->setListed(false);
                 $pack->setStock(1);
-                $this->entityManager->persist($pack);
+                $this->unitOfWork->persist($pack);
 
                 $quote->setProduct($pack);
                 $quote->setClient($quote->getClient() ?? $client);
                 $quote->accept();
-                $this->entityManager->flush();
+                $this->unitOfWork->flush();
             }
-            $this->entityManager->commit();
-        } catch (\Throwable $e) {
-            $this->entityManager->rollback();
 
-            throw $e;
-        }
+            return $pack;
+        };
+        $pack = null === $quote->getId() ? $accept() : Backends::of($this->unitOfWork, RowLocks::class)->locked($quote, function () use ($quote, $accept): HourPack {
+            $this->unitOfWork->refresh($quote);
+
+            return $accept();
+        });
 
         return $this->cart->add($pack, 1);
     }

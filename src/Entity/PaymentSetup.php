@@ -3,7 +3,7 @@
 namespace Base\Forge\Entity;
 
 use Base\Entity\User;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 
 /**
  * A payment method being saved on the provider's own page from Forge Store or Forge Hub (plan

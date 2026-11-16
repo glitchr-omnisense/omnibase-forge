@@ -3,7 +3,7 @@
 namespace Base\Forge\Entity;
 
 use Base\Entity\User;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 
 /**
  * Hours bought, paid back: the studio keeps the right to refund a purchase

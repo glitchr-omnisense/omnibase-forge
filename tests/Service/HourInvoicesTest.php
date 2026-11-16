@@ -173,8 +173,10 @@ class HourInvoicesTest extends ForgeWebTestCase
     {
         [$client, , $entries] = $this->partner();
         $draft = $this->hourInvoices()->draft(new HourInvoice($client, new \DateTimeImmutable('2026-10-01'), new \DateTimeImmutable('2026-10-31')));
-        $this->signIn($this->user('admin', ['ROLE_ADMIN', 'ROLE_SUPERADMIN']));
+        // Stored first: the session holds a user with its id.
+        $admin = $this->user('admin', ['ROLE_ADMIN', 'ROLE_SUPERADMIN']);
         $this->em->flush();
+        $this->signIn($admin);
 
         // A draft: its lines as they would be issued (the field's own template, setTemplatePath()), its hours under them.
         $page = $this->request('GET', '/admin/hour-invoices/'.$draft->getId());

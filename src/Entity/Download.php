@@ -3,7 +3,7 @@
 namespace Base\Forge\Entity;
 
 use Base\Entity\User;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 
 /** One artifact handed out: who, under which licence, when. The IP is kept hashed. */
 #[ORM\Entity]

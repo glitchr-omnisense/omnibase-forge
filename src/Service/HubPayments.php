@@ -9,7 +9,9 @@ use Base\Forge\Exception\HubPurchaseException;
 use Base\Marketplace\Entity\Order\Method\PaymentMethod;
 use Base\Marketplace\Payment\Omnitrade\OmnitradeGateway;
 use Base\Marketplace\Payment\Omnitrade\OmnitradeGateways;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Database\Repository\Finder\Key;
+use Base\Database\Repository\Repositories;
+use Base\Contract\UnitOfWork;
 use Omnitrade\Exception\OmnitradeException;
 use Omnitrade\Exception\ProviderException;
 use Omnitrade\Model\Customer;
@@ -44,7 +46,8 @@ class HubPayments
     public const SETUP_LIFETIME = '3 hours';
 
     public function __construct(
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
+        private readonly Repositories $repositories,
         private readonly LockFactory $locks,
         private readonly ?OmnitradeGateways $gateways = null,
         #[Autowire('%forge.hub.payment_gateway%')] private readonly ?string $gatewayName = 'stripe',
@@ -86,7 +89,7 @@ class HubPayments
      */
     public function paymentMethod(): PaymentMethod
     {
-        $method = $this->entityManager->getRepository(PaymentMethod::class)->findOneBy(['gatewayFactory' => $this->gatewayName()], ['id' => 'DESC']);
+        $method = $this->repositories->of(PaymentMethod::class)->findOneBy(['gatewayFactory' => $this->gatewayName()], ['id' => 'DESC']);
         if (!$method instanceof PaymentMethod) {
             throw new HubPurchaseException(HubPurchaseException::PAYMENTS_UNAVAILABLE, 503);
         }
@@ -97,7 +100,7 @@ class HubPayments
     /** Who the user is at the provider, once they saved a method. */
     public function customer(User $user): ?PaymentCustomer
     {
-        return $this->entityManager->getRepository(PaymentCustomer::class)->findOneBy(['user' => $user, 'gateway' => $this->gatewayName()]);
+        return $this->repositories->of(PaymentCustomer::class)->findOneBy(['user' => Key::of($user), 'gateway' => $this->gatewayName()]);
     }
 
     /**
@@ -150,12 +153,12 @@ class HubPayments
                 throw new HubPurchaseException(HubPurchaseException::PAYMENTS_UNAVAILABLE, 503);
             }
             if (null === $customer && null !== $setup->customer) {
-                $this->entityManager->persist(new PaymentCustomer($user, (string) $this->gatewayName(), $setup->customer));
+                $this->unitOfWork->persist(new PaymentCustomer($user, (string) $this->gatewayName(), $setup->customer));
             }
             if (null !== $token) {
-                $this->entityManager->persist(new PaymentSetup($user, (string) $this->gatewayName(), $token, $setup->reference, $setup->customer ?? $customer?->getReference()));
+                $this->unitOfWork->persist(new PaymentSetup($user, (string) $this->gatewayName(), $token, $setup->reference, $setup->customer ?? $customer?->getReference()));
             }
-            $this->entityManager->flush();
+            $this->unitOfWork->flush();
 
             return $setup;
         } finally {
@@ -166,7 +169,7 @@ class HubPayments
     /** The setup a return URL names, or null. */
     public function findSetup(string $token): ?PaymentSetup
     {
-        $setup = $this->entityManager->getRepository(PaymentSetup::class)->findOneBy(['token' => $token]);
+        $setup = $this->repositories->of(PaymentSetup::class)->findOneBy(['token' => $token]);
 
         return $setup instanceof PaymentSetup ? $setup : null;
     }
@@ -191,7 +194,7 @@ class HubPayments
         $gateway = $this->bridge()->gateway();
         if (!$gateway->supports(CompleteMethodSetup::class)) {
             $setup->markSaved();
-            $this->entityManager->flush();
+            $this->unitOfWork->flush();
 
             return null;
         }
@@ -202,14 +205,14 @@ class HubPayments
             if (CompleteMethodSetup::NOT_COMPLETED === $e->providerCode) {
                 if ($final) {
                     $setup->markNotSaved();
-                    $this->entityManager->flush();
+                    $this->unitOfWork->flush();
                 }
 
                 return null;
             }
             if (CompleteMethodSetup::NOT_THIS_CUSTOMER === $e->providerCode) {
                 $setup->markNotSaved();
-                $this->entityManager->flush();
+                $this->unitOfWork->flush();
 
                 throw new HubPurchaseException(HubPurchaseException::UNKNOWN_PAYMENT_METHOD, 404);
             }
@@ -218,7 +221,7 @@ class HubPayments
         } catch (OmnitradeException) {
             throw new HubPurchaseException(HubPurchaseException::PAYMENTS_UNAVAILABLE, 503);
         }
-        $this->entityManager->flush();
+        $this->unitOfWork->flush();
 
         return $method;
     }
@@ -231,7 +234,7 @@ class HubPayments
     private function completePending(User $user): void
     {
         $since = new \DateTimeImmutable('-'.self::SETUP_LIFETIME);
-        foreach ($this->entityManager->getRepository(PaymentSetup::class)->findBy(['user' => $user, 'gateway' => $this->gatewayName(), 'state' => PaymentSetup::PENDING], ['id' => 'ASC']) as $setup) {
+        foreach ($this->repositories->of(PaymentSetup::class)->findBy(['user' => Key::of($user), 'gateway' => $this->gatewayName(), 'state' => PaymentSetup::PENDING], ['id' => 'ASC']) as $setup) {
             $young = $setup->getCreatedAt() > $since;
             try {
                 $this->complete($setup, !$young);
@@ -240,7 +243,7 @@ class HubPayments
             }
             if (!$young && $setup->isPending()) {
                 $setup->markNotSaved();
-                $this->entityManager->flush();
+                $this->unitOfWork->flush();
             }
         }
     }

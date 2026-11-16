@@ -10,7 +10,8 @@ use Base\Forge\Service\ProjectReviews;
 use Base\Forge\Service\ReleaseSync;
 use Base\Marketplace\Entity\Order;
 use Base\Marketplace\Service\Checkout;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Database\Repository\Repositories;
+use Base\Contract\UnitOfWork;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -30,7 +31,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route('/admin/forge')]
 class ActionController extends AbstractController
 {
-    public function __construct(private readonly EntityManagerInterface $entityManager)
+    public function __construct(private readonly UnitOfWork $unitOfWork, private readonly Repositories $repositories)
     {
     }
 
@@ -38,7 +39,7 @@ class ActionController extends AbstractController
     public function build(Request $request, int $id, ReleaseSync $sync): RedirectResponse
     {
         $this->assertToken($request, 'forge_release_build', $id);
-        $release = $this->entityManager->find(Release::class, $id) ?? throw $this->createNotFoundException();
+        $release = $this->repositories->of(Release::class)->find($id) ?? throw $this->createNotFoundException();
         try {
             $sync->rebuild($release);
             $this->addFlash('success', sprintf('%s: archive built.', $release));
@@ -53,7 +54,7 @@ class ActionController extends AbstractController
     public function send(Request $request, int $id, MailerInterface $mailer): RedirectResponse
     {
         $this->assertToken($request, 'forge_quote_send', $id);
-        $quote = $this->entityManager->find(Quote::class, $id) ?? throw $this->createNotFoundException();
+        $quote = $this->repositories->of(Quote::class)->find($id) ?? throw $this->createNotFoundException();
         if ($quote->getTotalMinutes() <= 0) {
             $this->addFlash('error', sprintf('%s has no hours to sell: add its lines first.', $quote->getReference()));
 
@@ -62,7 +63,7 @@ class ActionController extends AbstractController
 
         $quote->setStatus(QuoteStatus::SENT);
         $quote->setValidUntil($quote->getValidUntil() ?? new \DateTimeImmutable('+30 days'));
-        $this->entityManager->flush();
+        $this->unitOfWork->flush();
 
         $mailer->send((new TemplatedEmail())
             ->to($quote->getEmail())
@@ -80,7 +81,7 @@ class ActionController extends AbstractController
     public function review(Request $request, int $id, ProjectReviews $reviews): RedirectResponse
     {
         $this->assertToken($request, 'forge_project_review', $id);
-        $project = $this->entityManager->find(Project::class, $id) ?? throw $this->createNotFoundException();
+        $project = $this->repositories->of(Project::class)->find($id) ?? throw $this->createNotFoundException();
         try {
             $reviews->request($project);
             $this->addFlash('success', sprintf('« %s » est livré : la demande d\'avis est partie à %s.', $project->getName(), $project->getClient()?->getEmail()));
@@ -98,7 +99,7 @@ class ActionController extends AbstractController
             throw $this->createAccessDeniedException('Invalid token.');
         }
 
-        $order = $this->entityManager->getRepository(Order::class)->findOneBy(['reference' => $reference]) ?? throw $this->createNotFoundException();
+        $order = $this->repositories->of(Order::class)->findOneBy(['reference' => $reference]) ?? throw $this->createNotFoundException();
         $transaction = null;
         foreach ($order->getTransactions() as $candidate) {
             $transaction = $candidate;

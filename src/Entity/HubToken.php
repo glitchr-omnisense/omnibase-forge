@@ -3,7 +3,7 @@
 namespace Base\Forge\Entity;
 
 use Base\Entity\User;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 
 /**
  * An editor or a desktop hub linked to its user's account on this forge (plan item 16.1): the

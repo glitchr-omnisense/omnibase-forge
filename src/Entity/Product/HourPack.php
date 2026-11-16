@@ -5,7 +5,7 @@ namespace Base\Forge\Entity\Product;
 use Base\Database\Attribute\DiscriminatorEntry;
 use Base\Marketplace\Entity\Product;
 use Base\Marketplace\Enum\Withdrawal;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 
 /**
  * Support hours, sold like any product of base-bundle-market: paying for n

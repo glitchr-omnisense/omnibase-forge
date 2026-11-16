@@ -6,7 +6,7 @@ use Base\Database\Attribute\DiscriminatorEntry;
 use Base\Forge\Entity\Software;
 use Base\Marketplace\Entity\Product;
 use Base\Marketplace\Enum\Withdrawal;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 
 /**
  * A licence for a piece of software, sold through base-bundle-market: paying

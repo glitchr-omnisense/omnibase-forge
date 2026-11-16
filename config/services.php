@@ -12,8 +12,8 @@ namespace Symfony\Component\DependencyInjection\Loader\Configurator;
  */
 
 /*
- * Plain autowiring over src/, as base-bundle-market does. Entities, enums and
- * models are not services; the admin CRUD controllers are loaded only when
+ * Plain autowiring over src/, as base-bundle-market does. Entities, enums,
+ * models and the backends' statements are not services; the admin CRUD controllers are loaded only when
  * base-bundle-admin is there.
  */
 return function (ContainerConfigurator $configurator) {

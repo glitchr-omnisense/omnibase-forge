@@ -18,7 +18,7 @@ use Base\Forge\Entity\Quote;
 use Base\Forge\Enum\QuoteStatus;
 use Base\Forge\Form\QuoteLineType;
 use Base\Forge\Repository\QuoteRepository;
-use Omnibridge\Persistence\UnitOfWork;
+use Base\Contract\UnitOfWork;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Contracts\Service\Attribute\Required;
 

@@ -3,7 +3,7 @@
 namespace Base\Forge\Entity;
 
 use Base\Forge\Enum\Platform;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 
 /**
  * A file a release is downloaded as, stored under forge.storage_dir (never

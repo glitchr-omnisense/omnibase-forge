@@ -2,7 +2,7 @@
 
 namespace Base\Forge\Entity;
 
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /** One line of a quote: a piece of work, its hours, the rate. */

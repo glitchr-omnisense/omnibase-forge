@@ -2,47 +2,47 @@
 
 namespace Base\Forge\Repository;
 
+use Base\Database\Repository\Finder\Criterion;
+use Base\Database\Repository\Finder\Group;
+use Base\Database\Repository\Finder\Key;
+use Base\Database\Repository\Finder\Parser;
 use Base\Entity\User;
 use Base\Forge\Entity\Project;
-use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
-use Doctrine\Persistence\ManagerRegistry;
+use Base\Database\Repository\ServiceEntityRepository;
 
-/** @extends ServiceEntityRepository<Project> */
+/**
+ * @method Project|null find($id, $lockMode = null, $lockVersion = null)
+ * @method Project|null findOneBy(array $criteria, array $orderBy = null)
+ * @method Project[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
+ */
 class ProjectRepository extends ServiceEntityRepository
 {
-    public function __construct(ManagerRegistry $registry)
-    {
-        parent::__construct($registry, Project::class);
-    }
-
     /** @return list<Project> open ones first, then by name */
     public function findForClient(User $client): array
     {
-        return $this->createQueryBuilder('p')
-            ->andWhere('p.client = :client')->setParameter('client', $client)
-            ->orderBy('p.createdAt', 'DESC')
-            ->getQuery()->getResult();
+        return $this->findBy(['client' => Key::of($client)], ['createdAt' => 'DESC']);
     }
 
     /** @return list<Project> every project with a git repository */
     public function findWithRepository(): array
     {
-        return $this->createQueryBuilder('p')
-            ->andWhere('p.gitRepository IS NOT NULL')
-            ->getQuery()->getResult();
+        return $this->findBy([self::notNull('gitRepository')]);
     }
 
     /** @return list<Project> the projects whose repository lives somewhere: where their runs are read (Service\PipelineSync) */
     public function findWithRepositoryUrl(): array
     {
-        return $this->createQueryBuilder('p')
-            ->andWhere('p.repositoryUrl IS NOT NULL')
-            ->orderBy('p.id', 'ASC')
-            ->getQuery()->getResult();
+        return $this->findBy([self::notNull('repositoryUrl')], ['id' => 'ASC']);
     }
 
     public function findOneByRepository(string $repository): ?Project
     {
         return $this->findOneBy(['gitRepository' => $repository]);
+    }
+
+    /** The criterion "$field IS NOT NULL". */
+    private static function notNull(string $field): Group
+    {
+        return Group::of(Parser::SEPARATOR_AND, Criterion::of($field, null, Parser::OPTION_NOT_NULL));
     }
 }

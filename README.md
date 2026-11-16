@@ -43,7 +43,7 @@ usually adds), then the ones the forge stands on:
 
 ```php
 // config/bundles.php
-Omnibridge\Symfony\Omnibase\BaseBundle::class => ['all' => true],
+Base\BaseBundle::class => ['all' => true],
 Base\Admin\AdminBundle::class => ['all' => true],
 Omnistate\Bridge\Symfony\OmnistateBundle::class => ['all' => true],
 Base\Marketplace\MarketplaceBundle::class => ['all' => true],

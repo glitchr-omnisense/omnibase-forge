@@ -2,7 +2,7 @@
 
 namespace Base\Forge\Entity;
 
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 
 /**
  * One machine a seat's software is activated on: a game, an application

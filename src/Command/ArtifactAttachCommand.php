@@ -7,7 +7,7 @@ use Base\Forge\Entity\Software;
 use Base\Forge\Enum\Platform;
 use Base\Forge\Repository\SoftwareRepository;
 use Base\Forge\Service\ArtifactBuilder;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Contract\UnitOfWork;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -29,7 +29,7 @@ class ArtifactAttachCommand extends Command
     public function __construct(
         private readonly SoftwareRepository $software,
         private readonly ArtifactBuilder $builder,
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
     ) {
         parent::__construct();
     }
@@ -80,8 +80,8 @@ class ArtifactAttachCommand extends Command
 
             return Command::FAILURE;
         }
-        $this->entityManager->persist($release);
-        $this->entityManager->flush();
+        $this->unitOfWork->persist($release);
+        $this->unitOfWork->flush();
 
         $io->success(sprintf('%s %s: %s build attached (%s, %d bytes, sha256 %s).', $software->getName(), $version, $platform->label(), $artifact->getFilename(), $artifact->getSize(), $artifact->getSha256()));
 

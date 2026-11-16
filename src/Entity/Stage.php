@@ -5,7 +5,7 @@ namespace Base\Forge\Entity;
 use Base\Forge\Enum\PipelineStatus;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 
 /** A step of a pipeline ("test", "build", "deploy"): the jobs that run together, after the stage before. */
 #[ORM\Entity]

@@ -4,7 +4,7 @@ namespace Base\Forge\Entity;
 
 use Base\Entity\User;
 use Base\Forge\Entity\Product\LicenseOffer;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 
 /**
  * A one-click purchase from Forge Store or Forge Hub (plan item 16.3): an offer bought with a

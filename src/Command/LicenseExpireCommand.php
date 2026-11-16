@@ -4,7 +4,7 @@ namespace Base\Forge\Command;
 
 use Base\Forge\Enum\LicenseStatus;
 use Base\Forge\Repository\LicenseRepository;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Contract\UnitOfWork;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -21,7 +21,7 @@ class LicenseExpireCommand extends Command
 {
     public function __construct(
         private readonly LicenseRepository $licenses,
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
     ) {
         parent::__construct();
     }
@@ -32,7 +32,7 @@ class LicenseExpireCommand extends Command
         foreach ($lapsed as $license) {
             $license->setStatus(LicenseStatus::EXPIRED);
         }
-        $this->entityManager->flush();
+        $this->unitOfWork->flush();
 
         (new SymfonyStyle($input, $output))->success(sprintf('%d licence(s) expired.', \count($lapsed)));
 

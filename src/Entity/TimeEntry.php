@@ -3,7 +3,8 @@
 namespace Base\Forge\Entity;
 
 use Base\Entity\User;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Forge\Repository\TimeEntryRepository;
+use Base\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
@@ -14,7 +15,7 @@ use Symfony\Component\Validator\Constraints as Assert;
  * the time spent (Project::$hourlyRate): then an invoice of hours bills it,
  * and it knows the line that did (HourInvoice, $invoiceLine).
  */
-#[ORM\Entity]
+#[ORM\Entity(repositoryClass: TimeEntryRepository::class)]
 #[ORM\Table(name: 'forge_time_entry')]
 class TimeEntry implements \Stringable
 {

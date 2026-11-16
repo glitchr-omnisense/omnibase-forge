@@ -4,7 +4,9 @@ namespace Base\Forge\Service;
 
 use Base\Entity\User;
 use Base\Forge\Entity\HubToken;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Database\Repository\Finder\Key;
+use Base\Database\Repository\Repositories;
+use Base\Contract\UnitOfWork;
 
 /**
  * The accounts the hub clients act for (plan item 16.1): the device flow (DeviceLinks) links an
@@ -18,7 +20,7 @@ class HubAccounts
 {
     private const BEARER = '/^Bearer\s+(gla_[0-9A-HJKMNP-TV-Z]{4}(?:-[0-9A-HJKMNP-TV-Z]{4}){7})\s*$/';
 
-    public function __construct(private readonly EntityManagerInterface $entityManager)
+    public function __construct(private readonly UnitOfWork $unitOfWork, private readonly Repositories $repositories)
     {
     }
 
@@ -26,8 +28,8 @@ class HubAccounts
     public function issue(User $user): string
     {
         $token = HubToken::PREFIX.substr(LicenseKey::generate(), \strlen(LicenseKey::PREFIX));
-        $this->entityManager->persist(new HubToken($user, $token));
-        $this->entityManager->flush();
+        $this->unitOfWork->persist(new HubToken($user, $token));
+        $this->unitOfWork->flush();
 
         return $token;
     }
@@ -50,7 +52,7 @@ class HubAccounts
         if (null === $authorization || !preg_match(self::BEARER, $authorization, $match)) {
             return null;
         }
-        $token = $this->entityManager->getRepository(HubToken::class)->findOneBy(['tokenHash' => HubToken::hash($match[1])]);
+        $token = $this->repositories->of(HubToken::class)->findOneBy(['tokenHash' => HubToken::hash($match[1])]);
         if (!$token instanceof HubToken) {
             return null;
         }
@@ -58,7 +60,7 @@ class HubAccounts
         $now = new \DateTimeImmutable();
         if (null === $token->getLastUsedAt() || $token->getLastUsedAt() < $now->modify('-1 day')) {
             $token->markUsed($now);
-            $this->entityManager->flush();
+            $this->unitOfWork->flush();
         }
 
         return $token;
@@ -71,7 +73,7 @@ class HubAccounts
      */
     public function tokensOf(User $user): array
     {
-        return array_values($this->entityManager->getRepository(HubToken::class)->findBy(['user' => $user], ['createdAt' => 'DESC', 'id' => 'DESC']));
+        return array_values($this->repositories->of(HubToken::class)->findBy(['user' => Key::of($user)], ['createdAt' => 'DESC', 'id' => 'DESC']));
     }
 
     /**
@@ -80,12 +82,12 @@ class HubAccounts
      */
     public function revoke(User $user, int $id): bool
     {
-        $token = $this->entityManager->find(HubToken::class, $id);
+        $token = $this->repositories->of(HubToken::class)->find($id);
         if (!$token instanceof HubToken || $token->getUser()->getId() !== $user->getId()) {
             return false;
         }
-        $this->entityManager->remove($token);
-        $this->entityManager->flush();
+        $this->unitOfWork->remove($token);
+        $this->unitOfWork->flush();
 
         return true;
     }

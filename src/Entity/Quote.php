@@ -7,7 +7,7 @@ use Base\Forge\Repository\QuoteRepository;
 use Base\Marketplace\Entity\Quote\AbstractQuote;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 
 /**
  * A special offer made to one client: lines of hours at a rate, a discount,

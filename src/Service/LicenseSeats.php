@@ -2,11 +2,14 @@
 
 namespace Base\Forge\Service;
 
+use Base\Database\Attribute\Backend\Backends;
+use Base\Database\Backend\RowLocks;
+use Base\Database\Repository\Finder\Key;
+use Base\Database\Repository\Repositories;
 use Base\Entity\User;
 use Base\Forge\Entity\License;
 use Base\Forge\Entity\LicenseSeat;
-use Doctrine\DBAL\LockMode;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Contract\UnitOfWork;
 use Psr\Log\LoggerInterface;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
@@ -20,7 +23,8 @@ use Symfony\Component\Mailer\MailerInterface;
 class LicenseSeats
 {
     public function __construct(
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
+        private readonly Repositories $repositories,
         private readonly MailerInterface $mailer,
         private readonly ?LoggerInterface $logger = null,
     ) {
@@ -41,19 +45,16 @@ class LicenseSeats
 
         // The licence's row locked, its seats read from the database: two
         // e-mails given at once both found the last seat free, and the same
-        // e-mail twice broke on the unique seat.
-        $this->entityManager->beginTransaction();
-        try {
-            if (null !== $license->getId()) {
-                $this->entityManager->lock($license, LockMode::PESSIMISTIC_WRITE);
+        // e-mail twice broke on the unique seat. A licence not written yet has
+        // no row to lock: its seats are its collection's, and the flush is its
+        // own transaction.
+        $seats = $this->repositories->of(LicenseSeat::class);
+        $existing = null;
+        $give = function () use ($license, $email, $seats, &$existing): LicenseSeat {
+            if ($existing = $license->getId() ? $seats->findOneBy(['license' => Key::of($license), 'email' => $email]) : $license->findSeat($email)) {
+                return $existing;
             }
-            $seats = $this->entityManager->getRepository(LicenseSeat::class);
-            if ($seat = $license->getId() ? $seats->findOneBy(['license' => $license, 'email' => $email]) : $license->findSeat($email)) {
-                $this->entityManager->commit();
-
-                return $seat;
-            }
-            $taken = $license->getId() ? $seats->count(['license' => $license]) : $license->getSeatsTaken();
+            $taken = $license->getId() ? $seats->count(['license' => Key::of($license)]) : $license->getSeatsTaken();
             if ($license->getSeats() - $taken < 1) {
                 throw new \InvalidArgumentException('forge.seat.none_left');
             }
@@ -62,13 +63,14 @@ class LicenseSeats
             // Told below, with who gave it: not again by the entity listener.
             $seat->markNotified();
             $license->addHolder($seat);
-            $this->entityManager->persist($seat);
-            $this->entityManager->flush();
-            $this->entityManager->commit();
-        } catch (\Throwable $e) {
-            $this->entityManager->rollback();
+            $this->unitOfWork->persist($seat);
+            $this->unitOfWork->flush();
 
-            throw $e;
+            return $seat;
+        };
+        $seat = null !== $license->getId() ? Backends::of($this->unitOfWork, RowLocks::class)->locked($license, $give) : $give();
+        if ($existing) {
+            return $existing;
         }
 
         $this->notify($seat, $by);
@@ -80,8 +82,8 @@ class LicenseSeats
     public function takeBack(LicenseSeat $seat): void
     {
         $seat->getLicense()?->removeHolder($seat);
-        $this->entityManager->remove($seat);
-        $this->entityManager->flush();
+        $this->unitOfWork->remove($seat);
+        $this->unitOfWork->flush();
     }
 
     /**
@@ -96,7 +98,7 @@ class LicenseSeats
     /** The account behind that e-mail, when it proved the e-mail is theirs. */
     private function verifiedUser(string $email): ?User
     {
-        $user = $this->entityManager->getRepository(User::class)->findOneBy(['email' => $email]);
+        $user = $this->repositories->of(User::class)->findOneBy(['email' => $email]);
 
         return $user instanceof User && $user->isVerified() ? $user : null;
     }

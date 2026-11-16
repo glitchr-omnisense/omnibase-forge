@@ -2,6 +2,8 @@
 
 namespace Tests\Base\Forge\Controller;
 
+use Base\Contract\UnitOfWork;
+use Base\Database\Repository\Repositories;
 use Base\Entity\User;
 use Base\Forge\Entity\HubPurchase;
 use Base\Forge\Entity\License;
@@ -404,7 +406,7 @@ class HubPurchaseTest extends ForgeWebTestCase
         $this->card = 'paid';
         $container = static::getContainer();
         $purchases = new HubPurchases(
-            $container->get(EntityManagerInterface::class), $container->get(HubPayments::class), $container->get(Checkout::class), $container->get(ShopPricing::class),
+            $container->get(UnitOfWork::class), $container->get(Repositories::class), $container->get(HubPayments::class), $container->get(Checkout::class), $container->get(ShopPricing::class),
             $container->get(RegionResolver::class), $container->get(LicenseIssuer::class), $container->get(UpmRegistry::class), $container->get(LockFactory::class),
             $container->get(HubPurchaseCharges::class), null, 0.3, $container->get(Consents::class),
         );
@@ -533,9 +535,10 @@ class HubPurchaseTest extends ForgeWebTestCase
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
         // The host names its terms (marketplace.consent.terms_route): any route stands for them here.
-        $consents = new Consents($em, $container->get(TranslatorInterface::class), $container->get(RouterInterface::class), 'forge_hub_quote', [], '2026-11-14');
+        $unitOfWork = $container->get(UnitOfWork::class);
+        $consents = new Consents($unitOfWork, $container->get(TranslatorInterface::class), $container->get(RouterInterface::class), 'forge_hub_quote', [], '2026-11-14');
         $purchases = fn (bool $required) => new HubPurchases(
-            $em, $container->get(HubPayments::class), $container->get(Checkout::class), $container->get(ShopPricing::class),
+            $unitOfWork, $container->get(Repositories::class), $container->get(HubPayments::class), $container->get(Checkout::class), $container->get(ShopPricing::class),
             $container->get(RegionResolver::class), $container->get(LicenseIssuer::class), $container->get(UpmRegistry::class), $container->get(LockFactory::class),
             $container->get(HubPurchaseCharges::class), null, 0.3, $consents, $required,
         );

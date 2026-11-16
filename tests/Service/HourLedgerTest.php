@@ -8,14 +8,14 @@ use Base\Forge\Entity\TimeEntry;
 use Base\Forge\Enum\CreditReason;
 use Base\Forge\Repository\HourCreditRepository;
 use Base\Forge\Service\HourLedger;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Contract\UnitOfWork;
 use Tests\Base\Forge\ForgeKernelTestCase;
 
 class HourLedgerTest extends ForgeKernelTestCase
 {
     private function ledger(): HourLedger
     {
-        return new HourLedger($this->createStub(EntityManagerInterface::class), $this->createStub(HourCreditRepository::class));
+        return new HourLedger($this->createStub(UnitOfWork::class), $this->createStub(HourCreditRepository::class));
     }
 
     public function testLoggedTimeIsDebitedFromTheClient(): void

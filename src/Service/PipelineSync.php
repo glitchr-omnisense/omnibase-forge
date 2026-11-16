@@ -7,7 +7,7 @@ use Base\Forge\Entity\Project;
 use Base\Forge\Model\PipelineRun;
 use Base\Forge\Pipeline\PipelineSourceInterface;
 use Base\Forge\Repository\PipelineRepository;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Contract\UnitOfWork;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 /**
@@ -22,7 +22,7 @@ final class PipelineSync
     public function __construct(
         #[AutowireIterator(PipelineSourceInterface::TAG)] private readonly iterable $sources,
         private readonly PipelineRepository $pipelines,
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
     ) {
     }
 
@@ -56,7 +56,7 @@ final class PipelineSync
         foreach ($source->runs($project, $limit) as $run) {
             $recorded[] = $this->record($project, $run);
         }
-        $this->entityManager->flush();
+        $this->unitOfWork->flush();
 
         return $recorded;
     }
@@ -89,7 +89,7 @@ final class PipelineSync
         }
         $pipeline->keep($kept);
 
-        $this->entityManager->persist($pipeline);
+        $this->unitOfWork->persist($pipeline);
 
         return $pipeline;
     }

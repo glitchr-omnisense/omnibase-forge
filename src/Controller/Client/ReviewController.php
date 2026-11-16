@@ -6,7 +6,7 @@ use Base\Forge\Entity\ProjectReview;
 use Base\Forge\Form\ReviewAnswerType;
 use Base\Forge\Model\ReviewAnswer;
 use Base\Forge\Repository\ProjectReviewRepository;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Contract\UnitOfWork;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,7 +20,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class ReviewController extends AbstractController
 {
     #[Route('/avis/{token}', name: 'forge_review', requirements: ['token' => '[A-Za-z0-9_\-]{20,64}'], methods: ['GET', 'POST'])]
-    public function review(string $token, Request $request, ProjectReviewRepository $reviews, EntityManagerInterface $entityManager): Response
+    public function review(string $token, Request $request, ProjectReviewRepository $reviews, UnitOfWork $unitOfWork): Response
     {
         $review = $reviews->findOneBy(['token' => $token]);
         if (!$review instanceof ProjectReview) {
@@ -34,7 +34,7 @@ class ReviewController extends AbstractController
 
         if (!$review->isSubmitted() && $form->isSubmitted() && $form->isValid()) {
             $review->submit((int) $answer->rating, $answer->comment, $answer->signature);
-            $entityManager->flush();
+            $unitOfWork->flush();
 
             return $this->redirectToRoute('forge_review', ['token' => $token]);
         }

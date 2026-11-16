@@ -3,7 +3,7 @@
 namespace Base\Forge\Entity;
 
 use Base\Forge\Repository\ProjectReviewRepository;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**

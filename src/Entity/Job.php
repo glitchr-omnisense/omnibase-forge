@@ -3,7 +3,7 @@
 namespace Base\Forge\Entity;
 
 use Base\Forge\Enum\PipelineStatus;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 
 /** One thing a stage runs: a test suite, a build, a deployment. */
 #[ORM\Entity]

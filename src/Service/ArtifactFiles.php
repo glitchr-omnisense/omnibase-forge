@@ -6,7 +6,7 @@ use Base\Entity\User;
 use Base\Forge\Entity\Artifact;
 use Base\Forge\Entity\Download;
 use Base\Forge\Entity\License;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Contract\UnitOfWork;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\HeaderUtils;
@@ -27,7 +27,7 @@ class ArtifactFiles
 {
     public function __construct(
         private readonly ArtifactBuilder $builder,
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
         #[Autowire('%kernel.secret%')] private readonly string $secret,
         #[Autowire('%forge.accel_prefix%')] private readonly ?string $accelPrefix = null,
     ) {
@@ -43,7 +43,7 @@ class ArtifactFiles
 
         if ($this->isNewDownload($request)) {
             $ip = $request->getClientIp();
-            $this->entityManager->persist(new Download(
+            $this->unitOfWork->persist(new Download(
                 $artifact,
                 // Composer's and Unity's downloads come with no session: whose seat it was is not known.
                 $user instanceof User ? $user : null,
@@ -51,7 +51,7 @@ class ArtifactFiles
                 $ip ? hash('sha256', $ip.$this->secret) : null,
                 $channel,
             ));
-            $this->entityManager->flush();
+            $this->unitOfWork->flush();
         }
 
         if ($this->accelPrefix) {

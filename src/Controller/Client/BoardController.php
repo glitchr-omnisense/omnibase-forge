@@ -7,7 +7,8 @@ use Base\Forge\Entity\Project;
 use Base\Forge\Model\CardMove;
 use Base\Forge\Security\Voter\ProjectVoter;
 use Base\Forge\Service\Board;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Database\Repository\Repositories;
+use Base\Contract\UnitOfWork;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -31,7 +32,8 @@ class BoardController extends AbstractController
     public const TOKEN = 'forge_board';
 
     public function __construct(
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
+        private readonly Repositories $repositories,
         private readonly Board $board,
     ) {
     }
@@ -39,7 +41,7 @@ class BoardController extends AbstractController
     #[Route('/projets/{id}/tableau', name: 'forge_project_board', requirements: ['id' => '\d+'], methods: ['GET'])]
     public function show(int $id): Response
     {
-        $project = $this->entityManager->find(Project::class, $id) ?? throw $this->createNotFoundException();
+        $project = $this->repositories->of(Project::class)->find($id) ?? throw $this->createNotFoundException();
         $this->denyAccessUnlessGranted(ProjectVoter::VIEW, $project);
 
         return $this->render('@Forge/client/project/board.html.twig', ['project' => $project]);
@@ -52,11 +54,11 @@ class BoardController extends AbstractController
             return new JsonResponse(['error' => 'Invalid token.'], Response::HTTP_FORBIDDEN);
         }
 
-        $card = $this->entityManager->find(Card::class, $id) ?? throw $this->createNotFoundException();
+        $card = $this->repositories->of(Card::class)->find($id) ?? throw $this->createNotFoundException();
         $this->denyAccessUnlessGranted(ProjectVoter::EDIT_BOARD, $card->getProject());
 
         $this->board->move($card, $move->getColumn(), $move->position);
-        $this->entityManager->flush();
+        $this->unitOfWork->flush();
 
         return new JsonResponse(['id' => $card->getId(), 'column' => $card->getColumn()->value, 'position' => $card->getPosition()]);
     }

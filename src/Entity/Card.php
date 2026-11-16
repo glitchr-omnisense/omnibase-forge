@@ -3,7 +3,7 @@
 namespace Base\Forge\Entity;
 
 use Base\Forge\Enum\CardColumn;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /** A task on a project's board. The client and the studio both move them. */

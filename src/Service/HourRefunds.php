@@ -2,6 +2,9 @@
 
 namespace Base\Forge\Service;
 
+use Base\Database\Attribute\Backend\Backends;
+use Base\Database\Backend\RowLocks;
+use Base\Database\Repository\Repositories;
 use Base\Entity\User;
 use Base\Forge\Entity\HourCredit;
 use Base\Forge\Entity\HourRefund;
@@ -11,8 +14,7 @@ use Base\Marketplace\Entity\Order;
 use Base\Marketplace\Entity\Order\Transaction;
 use Base\Marketplace\Payment\Omnitrade\OmnitradeGateway;
 use Base\Marketplace\Payment\PaymentGatewayRegistry;
-use Doctrine\DBAL\LockMode;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Contract\UnitOfWork;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\Mailer\MailerInterface;
 
@@ -34,7 +36,8 @@ use Symfony\Component\Mailer\MailerInterface;
 class HourRefunds
 {
     public function __construct(
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
+        private readonly Repositories $repositories,
         private readonly HourLedger $ledger,
         private readonly PaymentGatewayRegistry $gateways,
         private readonly MailerInterface $mailer,
@@ -43,7 +46,7 @@ class HourRefunds
 
     public function order(string $reference): ?Order
     {
-        return $this->entityManager->getRepository(Order::class)->findOneBy(['reference' => $reference]);
+        return $this->repositories->of(Order::class)->findOneBy(['reference' => $reference]);
     }
 
     /**
@@ -56,7 +59,7 @@ class HourRefunds
         $reference = (string) $order->getReference();
         $paid = null !== $order->getPaidAt() ? (int) $order->getNetPrice() : 0;
         $minutes = 0;
-        foreach ($this->entityManager->getRepository(HourCredit::class)->findBy(['orderReference' => $reference, 'reason' => CreditReason::PURCHASE]) as $line) {
+        foreach ($this->repositories->of(HourCredit::class)->findBy(['orderReference' => $reference, 'reason' => CreditReason::PURCHASE]) as $line) {
             $minutes += $line->getMinutes();
         }
         $refunded = $refundedMinutes = 0;
@@ -88,7 +91,7 @@ class HourRefunds
     /** @return list<HourRefund> */
     public function refunds(string $reference): array
     {
-        return $this->entityManager->getRepository(HourRefund::class)->findBy(['orderReference' => $reference], ['createdAt' => 'ASC']);
+        return $this->repositories->of(HourRefund::class)->findBy(['orderReference' => $reference], ['createdAt' => 'ASC']);
     }
 
     /**
@@ -103,8 +106,7 @@ class HourRefunds
             throw new HourRefundException('Une explication est nécessaire : le client la reçoit.');
         }
 
-        $refund = $this->entityManager->wrapInTransaction(function () use ($order, $amount, $minutes, $reason, $by) {
-            $this->entityManager->lock($order, LockMode::PESSIMISTIC_WRITE);
+        $refund = Backends::of($this->unitOfWork, RowLocks::class)->locked($order, function () use ($order, $amount, $minutes, $reason, $by) {
             $summary = $this->summary($order);
             if ($summary['paid'] <= 0) {
                 throw new HourRefundException(sprintf('La commande %s n\'est pas payée.', $order->getReference()));
@@ -122,7 +124,7 @@ class HourRefunds
             if ($online) {
                 $refund->setStripeRefund($this->refundThroughProvider($order, $amount, \count($this->refunds((string) $order->getReference()))));
             }
-            $this->entityManager->persist($refund);
+            $this->unitOfWork->persist($refund);
 
             if ($minutes > 0 && $order->getCustomer()) {
                 $this->ledger->credit($order->getCustomer(), -$minutes, CreditReason::REFUND, mb_substr($reason, 0, 255), (string) $order->getReference());
@@ -131,7 +133,7 @@ class HourRefunds
                 $order->markAsRefunded();
                 $this->paidTransaction($order)?->markAsRefunded();
             }
-            $this->entityManager->flush();
+            $this->unitOfWork->flush();
 
             return $refund;
         });

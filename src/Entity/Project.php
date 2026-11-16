@@ -10,7 +10,7 @@ use Base\Forge\Enum\ProjectStatus;
 use Base\Forge\Repository\ProjectRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 
 /**
  * A client's project: what the dashboard shows them - the board, the time

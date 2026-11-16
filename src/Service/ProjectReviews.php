@@ -2,11 +2,12 @@
 
 namespace Base\Forge\Service;
 
+use Base\Database\Repository\Finder\Key;
 use Base\Forge\Entity\Project;
 use Base\Forge\Entity\ProjectReview;
 use Base\Forge\Enum\ProjectStatus;
 use Base\Forge\Repository\ProjectReviewRepository;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Contract\UnitOfWork;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\Mailer\MailerInterface;
 
@@ -19,7 +20,7 @@ class ProjectReviews
 {
     public function __construct(
         private readonly ProjectReviewRepository $reviews,
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
         private readonly MailerInterface $mailer,
     ) {
     }
@@ -37,7 +38,7 @@ class ProjectReviews
             throw new \InvalidArgumentException('This project has no client to ask.');
         }
 
-        $review = $this->reviews->findOneBy(['project' => $project]);
+        $review = $this->reviews->findOneBy(['project' => Key::of($project)]);
         if ($review?->isSubmitted()) {
             throw new \InvalidArgumentException('The client has already given their review.');
         }
@@ -45,11 +46,11 @@ class ProjectReviews
             $review->renew();
         } else {
             $review = new ProjectReview($project);
-            $this->entityManager->persist($review);
+            $this->unitOfWork->persist($review);
         }
 
         $project->setStatus(ProjectStatus::DONE);
-        $this->entityManager->flush();
+        $this->unitOfWork->flush();
 
         $this->mailer->send((new TemplatedEmail())
             ->to($email)

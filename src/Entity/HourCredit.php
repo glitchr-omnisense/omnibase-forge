@@ -5,7 +5,7 @@ namespace Base\Forge\Entity;
 use Base\Entity\User;
 use Base\Forge\Enum\CreditReason;
 use Base\Forge\Repository\HourCreditRepository;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 
 /**
  * One line of a client's support-hour ledger: positive when hours are bought,

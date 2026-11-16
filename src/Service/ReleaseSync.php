@@ -4,7 +4,7 @@ namespace Base\Forge\Service;
 
 use Base\Forge\Entity\Release;
 use Base\Forge\Entity\Software;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Contract\UnitOfWork;
 use Git\Service\Git2Service;
 
 /**
@@ -20,7 +20,7 @@ class ReleaseSync
     public function __construct(
         private readonly Git2Service $git,
         private readonly ArtifactBuilder $builder,
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
     ) {
     }
 
@@ -59,11 +59,11 @@ class ReleaseSync
                 throw $e;
             }
 
-            $this->entityManager->persist($release);
+            $this->unitOfWork->persist($release);
             $created[] = $release;
         }
 
-        $this->entityManager->flush();
+        $this->unitOfWork->flush();
 
         return $created;
     }
@@ -72,7 +72,7 @@ class ReleaseSync
     public function rebuild(Release $release): void
     {
         $this->buildArchives($release);
-        $this->entityManager->flush();
+        $this->unitOfWork->flush();
     }
 
     /** What is built from the tree at its tag: the zip, and the UPM tarball of a Unity package. */

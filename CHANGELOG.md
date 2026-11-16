@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+omnibase/forge 1.0.0: the studio bundle of omnibase sites (software and releases, licences and seats, hour packs, time
+entries and hour invoices, projects and reviews) on the agnostic persistence. Its repositories extend
+`Base\Database\Repository\ServiceEntityRepository` and query in omnibase's finder language, the low hour balances
+included (`findValuesBy()` with an aggregate) and the time left to invoice (`TimeEntryRepository`), each query written
+once and compiled by the engine of the persistence chosen (omnibridge/doctrine or omnibridge/eloquent); its services
+write through `Base\Contract\UnitOfWork` and lock rows through `RowLocks`. The code names `Base\` and its own
+`Base\Forge\` only. Requires omnisense/omnibase and the omnibridge bridges `^1.0`.
+
 ## [1.2.2] - 2026-11-14
 
 ### Changed

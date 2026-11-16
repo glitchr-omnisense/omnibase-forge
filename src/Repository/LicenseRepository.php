@@ -2,30 +2,35 @@
 
 namespace Base\Forge\Repository;
 
+use Base\Database\Repository\Finder\Criterion;
+use Base\Database\Repository\Finder\Group;
+use Base\Database\Repository\Finder\Key;
+use Base\Database\Repository\Finder\Parser;
+use Base\Database\Repository\Finders;
+use Base\Database\Repository\Repositories;
 use Base\Entity\User;
 use Base\Forge\Entity\License;
 use Base\Forge\Entity\LicenseSeat;
 use Base\Forge\Entity\Software;
 use Base\Forge\Enum\LicenseStatus;
-use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
-use Doctrine\Persistence\ManagerRegistry;
+use Base\Database\Repository\ServiceEntityRepository;
 
-/** @extends ServiceEntityRepository<License> */
+/**
+ * @method License|null find($id, $lockMode = null, $lockVersion = null)
+ * @method License|null findOneBy(array $criteria, array $orderBy = null)
+ * @method License[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
+ */
 class LicenseRepository extends ServiceEntityRepository
 {
-    public function __construct(ManagerRegistry $registry)
+    public function __construct(private readonly Repositories $repositories, Finders $finders, ?string $entityName = null)
     {
-        parent::__construct($registry, License::class);
+        parent::__construct($finders, $entityName);
     }
 
     /** @return list<License> newest first */
     public function findOwnedBy(User $user): array
     {
-        return $this->createQueryBuilder('l')
-            ->innerJoin('l.software', 's')->addSelect('s')
-            ->andWhere('l.owner = :user')->setParameter('user', $user)
-            ->orderBy('l.createdAt', 'DESC')
-            ->getQuery()->getResult();
+        return $this->findBy(['owner' => Key::of($user), self::withSoftware()], ['createdAt' => 'DESC']);
     }
 
     /**
@@ -34,19 +39,20 @@ class LicenseRepository extends ServiceEntityRepository
      */
     public function findHeldBy(User $user, ?Software $software = null): array
     {
-        $query = $this->createQueryBuilder('l')
-            ->innerJoin('l.holders', 'h')
-            ->innerJoin('l.software', 's')->addSelect('s')
-            ->andWhere('h.user = :user OR (h.user IS NULL AND h.email = :email AND :verified = true)')
-            ->setParameter('user', $user)
-            ->setParameter('email', mb_strtolower((string) $user->getEmail()))
-            ->setParameter('verified', $user->isVerified())
-            ->orderBy('l.createdAt', 'DESC');
-        if ($software) {
-            $query->andWhere('l.software = :software')->setParameter('software', $software);
-        }
+        // A seat linked to the user, or - once their e-mail is verified - one given to that e-mail and linked to no one.
+        $linked = Criterion::of('holders.user', $user);
+        $holder = $user->isVerified()
+            ? Group::of(Parser::SEPARATOR_OR, $linked, Group::of(
+                Parser::SEPARATOR_AND,
+                Criterion::of('holders.user', null, Parser::OPTION_NULL),
+                Criterion::of('holders.email', mb_strtolower((string) $user->getEmail())),
+            ))
+            : Group::of(Parser::SEPARATOR_AND, $linked);
 
-        return $query->getQuery()->getResult();
+        return $this->findBy(
+            [$holder, self::withSoftware()] + ($software ? ['software' => Key::of($software)] : []),
+            ['createdAt' => 'DESC'],
+        );
     }
 
     /** @return list<License> the user's valid licences for that software - a seat of which they hold -, best first */
@@ -61,18 +67,17 @@ class LicenseRepository extends ServiceEntityRepository
     /** The seat a key was made for. */
     public function findSeatByKey(string $key): ?LicenseSeat
     {
-        return $this->getEntityManager()->getRepository(LicenseSeat::class)->findOneBy(['keyHash' => hash('sha256', $key)]);
+        return $this->repositories->of(LicenseSeat::class)->findOneBy(['keyHash' => hash('sha256', $key)]);
     }
 
     /** @return list<License> the valid licences a seat of which is given to that e-mail */
     public function findValidByEmail(string $email): array
     {
-        $licenses = $this->createQueryBuilder('l')
-            ->innerJoin('l.holders', 'h')
-            ->innerJoin('l.software', 's')->addSelect('s')
-            ->andWhere('h.email = :email')->setParameter('email', mb_strtolower(trim($email)))
-            ->andWhere('l.status = :active')->setParameter('active', LicenseStatus::ACTIVE)
-            ->getQuery()->getResult();
+        $licenses = $this->findBy([
+            'holders.email' => mb_strtolower(trim($email)),
+            'status' => LicenseStatus::ACTIVE,
+            self::withSoftware(),
+        ]);
 
         return array_values(array_filter($licenses, fn (License $license) => $license->isValid()));
     }
@@ -80,9 +85,18 @@ class LicenseRepository extends ServiceEntityRepository
     /** @return list<License> active ones whose expiry has passed */
     public function findLapsed(\DateTimeImmutable $at): array
     {
-        return $this->createQueryBuilder('l')
-            ->andWhere('l.status = :active')->setParameter('active', LicenseStatus::ACTIVE)
-            ->andWhere('l.expiresAt IS NOT NULL AND l.expiresAt <= :at')->setParameter('at', $at)
-            ->getQuery()->getResult();
+        return $this->findBy([
+            'status' => LicenseStatus::ACTIVE,
+            Group::of(Parser::SEPARATOR_AND, Criterion::of('expiresAt', $at, Parser::OPTION_LOWER_EQUAL)),
+        ]);
+    }
+
+    /**
+     * The licences whose software reads: what an inner join of it said (a
+     * software the persistence hides - its trash - hid the licence).
+     */
+    private static function withSoftware(): Group
+    {
+        return Group::of(Parser::SEPARATOR_AND, Criterion::of('software.id', null, Parser::OPTION_NOT_NULL));
     }
 }

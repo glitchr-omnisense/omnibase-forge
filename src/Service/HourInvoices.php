@@ -5,9 +5,10 @@ namespace Base\Forge\Service;
 use Base\Forge\Entity\HourInvoice;
 use Base\Forge\Invoice\HourInvoiceComposer;
 use Base\Forge\Repository\HourInvoiceRepository;
+use Base\Forge\Repository\TimeEntryRepository;
 use Base\Marketplace\Entity\Invoice;
 use Base\Marketplace\Service\Invoices;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Contract\UnitOfWork;
 
 /**
  * The forge invoices its hours: a Partner's time on the projects invoiced on
@@ -30,9 +31,10 @@ use Doctrine\ORM\EntityManagerInterface;
 class HourInvoices
 {
     public function __construct(
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
         private readonly HourInvoiceRepository $repository,
         private readonly HourInvoiceComposer $composer,
+        private readonly TimeEntryRepository $entries,
         private readonly Invoices $invoices,
     ) {
     }
@@ -64,11 +66,11 @@ class HourInvoices
                 $draft->removeEntry($entry);
             }
         }
-        foreach ($this->repository->invoiceable($client, $draft->getPeriodStart(), $draft->getPeriodEnd()) as $entry) {
+        foreach ($this->entries->invoiceable($client, $draft->getPeriodStart(), $draft->getPeriodEnd()) as $entry) {
             $draft->addEntry($entry);
         }
-        $this->entityManager->persist($draft);
-        $this->entityManager->flush();
+        $this->unitOfWork->persist($draft);
+        $this->unitOfWork->flush();
 
         return $draft;
     }
@@ -82,8 +84,8 @@ class HourInvoices
         foreach ($draft->getEntries()->toArray() as $entry) {
             $draft->removeEntry($entry);
         }
-        $this->entityManager->remove($draft);
-        $this->entityManager->flush();
+        $this->unitOfWork->remove($draft);
+        $this->unitOfWork->flush();
     }
 
     /**

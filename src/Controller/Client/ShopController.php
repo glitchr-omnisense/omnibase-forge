@@ -2,6 +2,7 @@
 
 namespace Base\Forge\Controller\Client;
 
+use Base\Database\Repository\Repositories;
 use Base\Entity\User;
 use Base\Forge\Entity\Product\HourPack;
 use Base\Forge\Entity\Quote;
@@ -14,7 +15,6 @@ use Base\Forge\Service\HourLedger;
 use Base\Forge\Service\QuoteStatusGuard;
 use Base\Forge\Service\QuoteToOrder;
 use Base\Marketplace\Service\CartException;
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -33,7 +33,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class ShopController extends AbstractController
 {
     public function __construct(
-        private readonly EntityManagerInterface $entityManager,
+        private readonly Repositories $repositories,
         private readonly QuoteRepository $quotes,
         private readonly HourLedger $ledger,
         #[Autowire('%forge.support_store%')] private readonly string $supportStore = 'support',
@@ -43,11 +43,8 @@ class ShopController extends AbstractController
     #[Route('/support', name: 'forge_shop')]
     public function index(): Response
     {
-        $packs = $this->entityManager->getRepository(HourPack::class)->createQueryBuilder('p')
-            ->innerJoin('p.parent', 's')
-            ->andWhere('s.slug = :store')->setParameter('store', $this->supportStore)
-            ->orderBy('p.unitPrice', 'ASC')
-            ->getQuery()->getResult();
+        // The packs of the support store (a path: its store joined, compared on its slug).
+        $packs = $this->repositories->of(HourPack::class)->findBy(['parent.slug' => $this->supportStore], ['unitPrice' => 'ASC']);
 
         $user = $this->getUser();
 

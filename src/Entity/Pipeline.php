@@ -6,7 +6,7 @@ use Base\Forge\Enum\PipelineStatus;
 use Base\Forge\Repository\PipelineRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 
 /**
  * One run of a project's checks on a commit - its tests, its build, its deployment -, wherever

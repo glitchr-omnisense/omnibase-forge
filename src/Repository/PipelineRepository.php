@@ -2,23 +2,22 @@
 
 namespace Base\Forge\Repository;
 
+use Base\Database\Repository\Finder\Key;
 use Base\Forge\Entity\Pipeline;
 use Base\Forge\Entity\Project;
-use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
-use Doctrine\Persistence\ManagerRegistry;
+use Base\Database\Repository\ServiceEntityRepository;
 
-/** @extends ServiceEntityRepository<Pipeline> */
+/**
+ * @method Pipeline|null find($id, $lockMode = null, $lockVersion = null)
+ * @method Pipeline|null findOneBy(array $criteria, array $orderBy = null)
+ * @method Pipeline[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
+ */
 class PipelineRepository extends ServiceEntityRepository
 {
-    public function __construct(ManagerRegistry $registry)
-    {
-        parent::__construct($registry, Pipeline::class);
-    }
-
     /** @return list<Pipeline> a project's latest runs, newest first */
     public function findLatestFor(Project $project, int $limit = 5): array
     {
-        return $this->findBy(['project' => $project], ['createdAt' => 'DESC', 'id' => 'DESC'], $limit);
+        return $this->findBy(['project' => Key::of($project)], ['createdAt' => 'DESC', 'id' => 'DESC'], $limit);
     }
 
     /** @return list<Pipeline> the latest runs of every project, newest first */

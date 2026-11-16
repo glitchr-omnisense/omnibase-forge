@@ -4,7 +4,8 @@ namespace Base\Forge\Command;
 
 use Base\Entity\User;
 use Base\Forge\Repository\HourCreditRepository;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Database\Repository\Repositories;
+use Base\Contract\UnitOfWork;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -24,7 +25,8 @@ class HoursLowBalanceCommand extends Command
 {
     public function __construct(
         private readonly HourCreditRepository $credits,
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
+        private readonly Repositories $repositories,
         private readonly MailerInterface $mailer,
         #[Autowire('%forge.low_balance_minutes%')] private readonly int $threshold = 120,
     ) {
@@ -42,7 +44,7 @@ class HoursLowBalanceCommand extends Command
         $sent = 0;
 
         foreach ($this->credits->lowBalances($this->threshold) as $id => $balance) {
-            $user = $this->entityManager->find(User::class, $id);
+            $user = $this->repositories->of(User::class)->find($id);
             if (!$user instanceof User || !$user->getEmail()) {
                 continue;
             }

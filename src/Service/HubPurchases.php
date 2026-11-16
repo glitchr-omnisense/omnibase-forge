@@ -24,7 +24,9 @@ use Base\Marketplace\Service\Checkout;
 use Base\Marketplace\Service\Consents;
 use Base\Marketplace\Service\Pricing;
 use Base\Marketplace\Service\RegionResolver;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Database\Repository\Finder\Key;
+use Base\Database\Repository\Repositories;
+use Base\Contract\UnitOfWork;
 use Omnitrade\Exception\OmnitradeException;
 use Omnitrade\Model\SavedMethod;
 use Omnitrade\Model\Status;
@@ -61,7 +63,8 @@ use Symfony\Component\Lock\LockFactory;
 class HubPurchases
 {
     public function __construct(
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
+        private readonly Repositories $repositories,
         private readonly HubPayments $payments,
         private readonly Checkout $checkout,
         private readonly Pricing $pricing,
@@ -87,7 +90,7 @@ class HubPurchases
      */
     public function offer(int $id): LicenseOffer
     {
-        $offer = $this->entityManager->find(LicenseOffer::class, $id);
+        $offer = $this->repositories->of(LicenseOffer::class)->find($id);
         if (!$offer instanceof LicenseOffer || !$offer->isForSell() || null === $offer->getSoftware() || null === $offer->getStore()) {
             throw new HubPurchaseException(HubPurchaseException::UNKNOWN_OFFER, 404);
         }
@@ -135,7 +138,7 @@ class HubPurchases
             usleep(100000);
         }
         try {
-            $done = $this->entityManager->getRepository(HubPurchase::class)->findOneBy(['user' => $user, 'idempotencyKey' => $idempotencyKey]);
+            $done = $this->repositories->of(HubPurchase::class)->findOneBy(['user' => Key::of($user), 'idempotencyKey' => $idempotencyKey]);
             if ($done instanceof HubPurchase) {
                 if (!$done->isSameRequest($request->offer, $request->price, $request->currency)) {
                     throw new HubPurchaseException(HubPurchaseException::IDEMPOTENCY_KEY_REUSED, 422);
@@ -159,18 +162,18 @@ class HubPurchases
             $customer = $this->payments->customer($user) ?? throw new HubPurchaseException(HubPurchaseException::PAYMENT_METHOD_REQUIRED, 409);
 
             $purchase = new HubPurchase($user, $idempotencyKey, $offer, $price, $currency, (string) $this->payments->gatewayName());
-            $this->entityManager->persist($order);
+            $this->unitOfWork->persist($order);
             foreach ($order->getItems() as $item) {
-                $this->entityManager->persist($item);
+                $this->unitOfWork->persist($item);
             }
-            $this->entityManager->persist($purchase);
-            $this->entityManager->flush(); // the order gets its reference
+            $this->unitOfWork->persist($purchase);
+            $this->unitOfWork->flush(); // the order gets its reference
             $purchase->charging($method->reference, $order->getReference());
             // What its user stated, on the order: confirmed with it by e-mail once paid (marketplace's OrderConfirmationListener).
             if ([] !== $statements) {
                 $this->consents?->record($order, $statements, Consent::HUB);
             }
-            $this->entityManager->flush();
+            $this->unitOfWork->flush();
 
             $this->charges->charge($order, $purchase, $method->reference, $customer->getReference());
             try {
@@ -190,7 +193,7 @@ class HubPurchases
                 $result->isRefused() => $this->refused($purchase, $order, self::reason($result)),
                 default => $purchase->markPending(),
             };
-            $this->entityManager->flush();
+            $this->unitOfWork->flush();
 
             return $purchase;
         } finally {
@@ -208,14 +211,14 @@ class HubPurchases
         if (HubPurchase::PAID === $purchase->getStatus() || null === $purchase->getOrderReference()) {
             return $purchase;
         }
-        $order = $this->entityManager->getRepository(Order::class)->findOneBy(['reference' => $purchase->getOrderReference()]);
+        $order = $this->repositories->of(Order::class)->findOneBy(['reference' => $purchase->getOrderReference()]);
         if (!$order instanceof Order) {
             return $purchase;
         }
         // Paid is paid, whatever was said before: the money came in, the licence is issued.
         if (null !== $order->getPaidAt()) {
             $purchase->markPaid();
-            $this->entityManager->flush();
+            $this->unitOfWork->flush();
 
             return $purchase;
         }
@@ -244,7 +247,7 @@ class HubPurchases
             $this->checkout->cancel($order, $transaction);
             $this->refused($purchase, $order, $paid->message);
         }
-        $this->entityManager->flush();
+        $this->unitOfWork->flush();
 
         return $purchase;
     }
@@ -326,7 +329,7 @@ class HubPurchases
         $purchase = $this->of($event->order);
         if ($purchase && !$purchase->isOver() && null === $event->order->getPaidAt()) {
             $this->refused($purchase, $event->order, $event->transaction->getDetails()['message'] ?? null);
-            $this->entityManager->flush();
+            $this->unitOfWork->flush();
         }
     }
 
@@ -336,7 +339,7 @@ class HubPurchases
         if (null === $purchase->getOrderReference()) {
             return null;
         }
-        $license = $this->entityManager->getRepository(License::class)->findOneBy(['orderReference' => $purchase->getOrderReference()], ['id' => 'ASC']);
+        $license = $this->repositories->of(License::class)->findOneBy(['orderReference' => $purchase->getOrderReference()], ['id' => 'ASC']);
 
         return $license instanceof License ? $license->findSeatOf($purchase->getUser()) : null;
     }
@@ -356,14 +359,14 @@ class HubPurchases
 
     public function find(User $user, string $token): ?HubPurchase
     {
-        $purchase = $this->entityManager->getRepository(HubPurchase::class)->findOneBy(['token' => $token]);
+        $purchase = $this->repositories->of(HubPurchase::class)->findOneBy(['token' => $token]);
 
         return $purchase instanceof HubPurchase && $purchase->getUser()->getId() === $user->getId() ? $purchase : null;
     }
 
     public function findByToken(string $token): ?HubPurchase
     {
-        $purchase = $this->entityManager->getRepository(HubPurchase::class)->findOneBy(['token' => $token]);
+        $purchase = $this->repositories->of(HubPurchase::class)->findOneBy(['token' => $token]);
 
         return $purchase instanceof HubPurchase ? $purchase : null;
     }
@@ -509,7 +512,7 @@ class HubPurchases
         if (null === $reference || '' === $reference) {
             return null;
         }
-        $purchase = $this->entityManager->getRepository(HubPurchase::class)->findOneBy(['orderReference' => $reference]);
+        $purchase = $this->repositories->of(HubPurchase::class)->findOneBy(['orderReference' => $reference]);
 
         return $purchase instanceof HubPurchase ? $purchase : null;
     }

@@ -10,6 +10,7 @@ use Base\Forge\Model\PipelineRunJob;
 use Base\Forge\Pipeline\PipelineSourceInterface;
 use Base\Forge\Repository\PipelineRepository;
 use Base\Forge\Service\PipelineSync;
+use Base\Contract\UnitOfWork;
 use Tests\Base\Forge\ForgeWebTestCase;
 
 /** A project's runs recorded from its source, in a host application: added once, then brought up to date. */
@@ -41,7 +42,7 @@ class PipelineSyncTest extends ForgeWebTestCase
                 return $this->runs;
             }
         };
-        $sync = new PipelineSync([$source], static::getContainer()->get(PipelineRepository::class), $this->em);
+        $sync = new PipelineSync([$source], static::getContainer()->get(PipelineRepository::class), static::getContainer()->get(UnitOfWork::class));
         self::assertSame($source, $sync->source($project));
         self::assertNull($sync->source((new Project())->setRepositoryUrl('https://elsewhere.example.org/x')), 'no source reads it');
 

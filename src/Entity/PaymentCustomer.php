@@ -3,7 +3,7 @@
 namespace Base\Forge\Entity;
 
 use Base\Entity\User;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 
 /**
  * Who a user is at a payment provider (plan item 16.2): the provider's customer reference

@@ -8,7 +8,8 @@ use Base\Forge\Entity\Artifact;
 use Base\Forge\Entity\Release;
 use Base\Forge\Enum\Platform;
 use Base\Forge\Service\ArtifactBuilder;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Database\Repository\Repositories;
+use Base\Contract\UnitOfWork;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -27,7 +28,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class BuildController extends AbstractController
 {
     public function __construct(
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
+        private readonly Repositories $repositories,
         private readonly ArtifactBuilder $builder,
         private readonly AdminContext $adminContext,
         private readonly MenuBuilder $menuBuilder,
@@ -37,7 +39,7 @@ class BuildController extends AbstractController
     #[Route('/admin/forge/release/{id}/builds', name: 'forge_admin_release_builds', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
     public function builds(Request $request, int $id): Response
     {
-        $release = $this->entityManager->find(Release::class, $id) ?? throw $this->createNotFoundException();
+        $release = $this->repositories->of(Release::class)->find($id) ?? throw $this->createNotFoundException();
 
         if ($request->isMethod('POST')) {
             if (!$this->isCsrfTokenValid('forge_release_builds_'.$id, (string) $request->request->get('_token'))) {
@@ -55,7 +57,7 @@ class BuildController extends AbstractController
             } else {
                 try {
                     $artifact = $this->builder->attach($release, $platform, $file->getPathname(), $file->getClientOriginalName());
-                    $this->entityManager->flush();
+                    $this->unitOfWork->flush();
                     $this->addFlash('success', sprintf('%s: %s build attached (sha256 %s).', $release, $platform->label(), $artifact->getSha256()));
 
                     return $this->redirectToRoute('forge_admin_release_builds', ['id' => $id]);
@@ -87,7 +89,7 @@ class BuildController extends AbstractController
         }
         $path = $this->builder->absolutePath($artifact);
         $release->getArtifacts()->removeElement($artifact);
-        $this->entityManager->flush();
+        $this->unitOfWork->flush();
         (new Filesystem())->remove(\dirname($path));
         $this->addFlash('success', sprintf('%s: %s build removed.', $release, $artifact->getPlatform()?->label()));
     }

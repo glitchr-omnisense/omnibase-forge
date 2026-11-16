@@ -13,7 +13,9 @@ use Base\Forge\Service\HubAccounts;
 use Base\Forge\Service\LicenseActivations;
 use Base\Forge\Service\LicenseIssuer;
 use Base\Forge\Service\LicenseSeats;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Database\Repository\Finder\Key;
+use Base\Database\Repository\Repositories;
+use Base\Contract\UnitOfWork;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -33,7 +35,8 @@ class AccountController extends AbstractController
         private readonly LicenseRepository $licenses,
         private readonly QuoteRepository $quotes,
         private readonly HourLedger $ledger,
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
+        private readonly Repositories $repositories,
         private readonly ?HubAccounts $accounts = null,
     ) {
     }
@@ -169,7 +172,7 @@ class AccountController extends AbstractController
             'balance' => $this->ledger->balance($user),
             'history' => $this->ledger->history($user, 20),
             'quotes' => $this->quotes->findForClient($user),
-            'downloads' => $this->entityManager->getRepository(Download::class)->findBy(['user' => $user], ['downloadedAt' => 'DESC'], 10),
+            'downloads' => $this->repositories->of(Download::class)->findBy(['user' => Key::of($user)], ['downloadedAt' => 'DESC'], 10),
             'hub_tokens' => $this->accounts?->tokensOf($user) ?? [],
             'key' => $key,
         ]);

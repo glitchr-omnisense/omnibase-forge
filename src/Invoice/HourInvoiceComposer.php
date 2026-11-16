@@ -9,7 +9,8 @@ use Base\Marketplace\Entity\Store;
 use Base\Marketplace\Invoice\InvoiceComposer;
 use Base\Marketplace\Model\InvoiceSource;
 use Base\Marketplace\Pricing\ReverseCharge;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Database\Repository\Repositories;
+use Base\Contract\UnitOfWork;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -36,7 +37,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 final class HourInvoiceComposer
 {
     public function __construct(
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
+        private readonly Repositories $repositories,
         private readonly InvoiceComposer $invoiceComposer,
         private readonly ?TranslatorInterface $translator = null,
         #[Autowire('%forge.support_store%')] private readonly string $storeSlug = 'support',
@@ -52,7 +54,7 @@ final class HourInvoiceComposer
     public function source(HourInvoice $draft): array
     {
         $client = $draft->getClient() ?? throw new \LogicException('An invoice of hours is for a Partner.');
-        $store = $this->entityManager->getRepository(Store::class)->findOneBy(['slug' => $this->storeSlug]);
+        $store = $this->repositories->of(Store::class)->findOneBy(['slug' => $this->storeSlug]);
         $buyer = $this->invoiceComposer->buyerOf($client, method_exists($client, 'getAddress') ? $client->getAddress(0) : null);
         $exemption = $this->exemption($this->invoiceComposer->sellerFor($store), $buyer);
         ['lines' => $lines, 'totals' => $totals, 'line_of' => $lineOf] = $this->amounts($draft, array_values($draft->getEntries()->toArray()), $exemption);

@@ -2,48 +2,46 @@
 
 namespace Base\Forge\Repository;
 
+use Base\Database\Repository\Finder\Aggregate;
+use Base\Database\Repository\Finder\Criterion;
+use Base\Database\Repository\Finder\Group;
+use Base\Database\Repository\Finder\Parser;
+use Base\Database\Repository\Finder\Key;
 use Base\Entity\User;
 use Base\Forge\Entity\HourCredit;
-use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
-use Doctrine\Persistence\ManagerRegistry;
+use Base\Database\Repository\ServiceEntityRepository;
 
-/** @extends ServiceEntityRepository<HourCredit> */
+/**
+ * @method HourCredit|null find($id, $lockMode = null, $lockVersion = null)
+ * @method HourCredit|null findOneBy(array $criteria, array $orderBy = null)
+ * @method HourCredit[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
+ * @method mixed           sumOfMinutesBy(array $criteria)
+ */
 class HourCreditRepository extends ServiceEntityRepository
 {
-    public function __construct(ManagerRegistry $registry)
-    {
-        parent::__construct($registry, HourCredit::class);
-    }
-
-    /** Minutes left: everything bought minus everything logged. */
+    /** Minutes left: everything bought minus everything logged (0 without a line: SUM of no row is null). */
     public function balance(User $user): int
     {
-        return (int) $this->createQueryBuilder('c')
-            ->select('COALESCE(SUM(c.minutes), 0)')
-            ->andWhere('c.user = :user')->setParameter('user', $user)
-            ->getQuery()->getSingleScalarResult();
+        return (int) $this->sumOfMinutesBy(['user' => Key::of($user)]);
     }
 
     /** @return list<HourCredit> newest first */
     public function history(User $user, int $limit = 50): array
     {
-        return $this->createQueryBuilder('c')
-            ->andWhere('c.user = :user')->setParameter('user', $user)
-            ->orderBy('c.createdAt', 'DESC')->addOrderBy('c.id', 'DESC')
-            ->setMaxResults($limit)
-            ->getQuery()->getResult();
+        return $this->findBy(['user' => Key::of($user)], ['createdAt' => 'DESC', 'id' => 'DESC'], $limit);
     }
 
     /** @return array<int, int> user id => balance, for the users below $minutes who once bought hours */
     public function lowBalances(int $minutes): array
     {
-        $rows = $this->createQueryBuilder('c')
-            ->select('IDENTITY(c.user) AS user, SUM(c.minutes) AS balance')
-            ->groupBy('c.user')
-            ->having('SUM(c.minutes) < :minutes')->setParameter('minutes', $minutes)
-            ->getQuery()->getArrayResult();
+        $balances = [];
+        foreach ($this->findValuesBy(['user', 'balance' => Aggregate::sum('minutes')], having: [
+            Group::of(Parser::SEPARATOR_AND, Criterion::of('balance', $minutes, Parser::OPTION_LOWER)),
+        ]) as $row) {
+            $balances[(int) $row['user']] = (int) $row['balance'];
+        }
 
-        return array_column($rows, 'balance', 'user');
+        return $balances;
     }
 
     public function hasOrder(string $reference): bool

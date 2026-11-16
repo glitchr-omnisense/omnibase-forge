@@ -6,8 +6,8 @@ use Base\Forge\Entity\Project;
 use Base\Forge\Enum\PipelineStatus;
 use Base\Forge\Model\PipelineRunJob;
 use Base\Forge\Pipeline\GithubActionsSource;
-use Omnibridge\Contract\Locales;
-use Omnibridge\Runtime;
+use Base\Contract\Locales;
+use Base\Contract\Runtime;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -59,6 +59,11 @@ class GithubActionsSourceTest extends TestCase
                 public function getAvailableLocales(): array
                 {
                     return ['en'];
+                }
+
+                public function getTimezone(): string
+                {
+                    return 'UTC';
                 }
             };
             Runtime::set(Locales::class, $this->locales);

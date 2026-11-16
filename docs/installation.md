@@ -29,7 +29,7 @@ composer require omnibase/forge
 
 ```php
 // config/bundles.php: the core's bundle first, then the ones the forge stands on
-Omnibridge\Symfony\Omnibase\BaseBundle::class => ['all' => true],
+Base\BaseBundle::class => ['all' => true],
 Base\Admin\AdminBundle::class => ['all' => true],
 Omnistate\Bridge\Symfony\OmnistateBundle::class => ['all' => true],
 Base\Marketplace\MarketplaceBundle::class => ['all' => true],

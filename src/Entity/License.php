@@ -7,7 +7,7 @@ use Base\Forge\Enum\LicenseStatus;
 use Base\Forge\Repository\LicenseRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
-use Doctrine\ORM\Mapping as ORM;
+use Base\Mapping as ORM;
 
 /**
  * The right to download a licensed piece of software - and to install it

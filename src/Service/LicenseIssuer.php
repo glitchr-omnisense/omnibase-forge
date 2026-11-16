@@ -7,12 +7,12 @@ use Base\Forge\Entity\License;
 use Base\Forge\Entity\LicenseSeat;
 use Base\Forge\Entity\Product\LicenseOffer;
 use Base\Forge\Entity\Software;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Contract\UnitOfWork;
 
 /** Issues licences (from a paid offer, or by hand) and the keys of their seats. */
 class LicenseIssuer
 {
-    public function __construct(private readonly EntityManagerInterface $entityManager)
+    public function __construct(private readonly UnitOfWork $unitOfWork)
     {
     }
 
@@ -41,7 +41,7 @@ class LicenseIssuer
 
         // Theirs to begin with: nothing to tell them, they just bought it.
         $license->addHolder((new LicenseSeat($license, (string) $owner->getEmail(), $owner))->markNotified());
-        $this->entityManager->persist($license);
+        $this->unitOfWork->persist($license);
 
         return $license;
     }
@@ -54,7 +54,7 @@ class LicenseIssuer
     {
         $key = LicenseKey::generate();
         $seat->setKey($key);
-        $this->entityManager->flush();
+        $this->unitOfWork->flush();
 
         return $key;
     }

@@ -16,7 +16,7 @@ use Base\Forge\Entity\HourInvoice;
 use Base\Forge\Entity\TimeEntry;
 use Base\Forge\Enum\HourInvoiceStatus;
 use Base\Forge\Service\HourInvoices;
-use Omnibridge\Persistence\UnitOfWork;
+use Base\Contract\UnitOfWork;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;

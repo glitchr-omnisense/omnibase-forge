@@ -4,22 +4,18 @@ namespace Base\Forge\Repository;
 
 use Base\Forge\Entity\Quote;
 use Base\Marketplace\Quote\QuoteRepositoryTrait;
-use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
-use Doctrine\Persistence\ManagerRegistry;
+use Base\Database\Repository\ServiceEntityRepository;
 
 /**
  * The studio's quotes, numbered Q-<year>-<n>: what every quote table answers
  * is omnibase/marketplace's (QuoteRepositoryTrait: saveNumbered(),
  * findForClient(), pipeline()).
  *
- * @extends ServiceEntityRepository<Quote>
+ * @method Quote|null find($id, $lockMode = null, $lockVersion = null)
+ * @method Quote|null findOneBy(array $criteria, array $orderBy = null)
+ * @method Quote[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
  */
 class QuoteRepository extends ServiceEntityRepository
 {
     use QuoteRepositoryTrait;
-
-    public function __construct(ManagerRegistry $registry)
-    {
-        parent::__construct($registry, Quote::class);
-    }
 }

@@ -13,7 +13,9 @@ use Base\Forge\Repository\HourCreditRepository;
 use Base\Forge\Service\HourLedger;
 use Base\Forge\Service\LicenseIssuer;
 use Base\Marketplace\Event\OrderPaidEvent;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Database\Repository\Finder\Key;
+use Base\Database\Repository\Repositories;
+use Base\Contract\UnitOfWork;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
@@ -32,7 +34,8 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 final class OrderPaidSubscriber
 {
     public function __construct(
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
+        private readonly Repositories $repositories,
         private readonly HourLedger $ledger,
         private readonly HourCreditRepository $credits,
         private readonly LicenseIssuer $issuer,
@@ -58,7 +61,7 @@ final class OrderPaidSubscriber
             if ($product instanceof HourPack && $product->getMinutes() > 0) {
                 $this->ledger->credit($customer, $product->getMinutes() * $quantity, CreditReason::PURCHASE, (string) $product, $reference);
 
-                $quote = $this->entityManager->getRepository(Quote::class)->findOneBy(['product' => $product]);
+                $quote = $this->repositories->of(Quote::class)->findOneBy(['product' => Key::of($product)]);
                 if ($quote) {
                     $quote->setStatus(QuoteStatus::PAID);
                     $quote->setOrderReference($reference);
@@ -76,14 +79,14 @@ final class OrderPaidSubscriber
             }
         }
 
-        $this->entityManager->flush();
+        $this->unitOfWork->flush();
     }
 
     private function delivered(string $reference): bool
     {
         return '' !== $reference && (
             $this->credits->hasOrder($reference)
-            || null !== $this->entityManager->getRepository(License::class)->findOneBy(['orderReference' => $reference])
+            || null !== $this->repositories->of(License::class)->findOneBy(['orderReference' => $reference])
         );
     }
 }

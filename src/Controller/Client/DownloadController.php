@@ -12,7 +12,8 @@ use Base\Forge\Repository\SoftwareRepository;
 use Base\Forge\Security\Voter\ArtifactVoter;
 use Base\Forge\Service\ArtifactFiles;
 use Base\Service\DownloadLinks;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Database\Repository\Repositories;
+use Base\Contract\UnitOfWork;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
@@ -31,7 +32,8 @@ class DownloadController extends AbstractController
     public function __construct(
         private readonly SoftwareRepository $software,
         private readonly LicenseRepository $licenses,
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
+        private readonly Repositories $repositories,
         private readonly DownloadLinks $links,
         private readonly ArtifactFiles $files,
         #[Autowire('%forge.download_ttl%')] private readonly int $downloadTtl = 600,
@@ -103,10 +105,10 @@ class DownloadController extends AbstractController
             throw new AccessDeniedHttpException('This download link is invalid or has expired.');
         }
 
-        $artifact = $this->entityManager->getRepository(Artifact::class)->find($id)
+        $artifact = $this->repositories->of(Artifact::class)->find($id)
             ?? throw $this->createNotFoundException('Unknown artifact.');
 
-        $license = $request->query->getInt('license') ? $this->entityManager->getRepository(License::class)->find($request->query->getInt('license')) : null;
+        $license = $request->query->getInt('license') ? $this->repositories->of(License::class)->find($request->query->getInt('license')) : null;
 
         return $this->files->respond($request, $artifact, $license, $this->getUser(), 'composer' === $request->query->get('channel') ? 'composer' : 'web');
     }

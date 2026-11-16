@@ -2,12 +2,15 @@
 
 namespace Base\Forge\Service;
 
+use Base\Database\Attribute\Backend\Backends;
+use Base\Database\Backend\RowLocks;
+use Base\Database\Repository\Finder\Key;
+use Base\Database\Repository\Repositories;
 use Base\Forge\Entity\LicenseActivation;
 use Base\Forge\Exception\LicenseActivationException;
 use Base\Forge\Entity\LicenseSeat;
 use Base\Forge\Repository\LicenseRepository;
-use Doctrine\DBAL\LockMode;
-use Doctrine\ORM\EntityManagerInterface;
+use Base\Contract\UnitOfWork;
 
 /**
  * The machines a seat's software runs on. The software sends its seat's
@@ -22,7 +25,8 @@ class LicenseActivations
     public function __construct(
         private readonly LicenseRepository $licenses,
         private readonly LicenseToken $tokens,
-        private readonly EntityManagerInterface $entityManager,
+        private readonly UnitOfWork $unitOfWork,
+        private readonly Repositories $repositories,
     ) {
     }
 
@@ -46,10 +50,9 @@ class LicenseActivations
         // The seat's row locked, its machines read from the database: two
         // machines activating at once both found the last place free, and the
         // same machine asking twice broke on the unique (seat, machine).
-        $this->entityManager->beginTransaction();
-        try {
-            $this->entityManager->lock($seat, LockMode::PESSIMISTIC_WRITE);
-            $activation = $this->entityManager->getRepository(LicenseActivation::class)->findOneBy(['seat' => $seat, 'machine' => $machine]);
+        $activations = $this->repositories->of(LicenseActivation::class);
+        $activation = Backends::of($this->unitOfWork, RowLocks::class)->locked($seat, function () use ($seat, $machine, $activations, $name, $platform, $version): LicenseActivation {
+            $activation = $activations->findOneBy(['seat' => Key::of($seat), 'machine' => $machine]);
             if (!$activation) {
                 if ($this->machinesLeft($seat) < 1) {
                     throw new LicenseActivationException(LicenseActivationException::NO_MACHINE_LEFT, [
@@ -57,24 +60,21 @@ class LicenseActivations
                             'name' => $a->getName(),
                             'platform' => $a->getPlatform(),
                             'last_seen' => $a->getLastSeenAt()->format(\DATE_ATOM),
-                        ], $this->entityManager->getRepository(LicenseActivation::class)->findBy(['seat' => $seat])),
+                        ], $activations->findBy(['seat' => Key::of($seat)])),
                     ]);
                 }
                 $activation = new LicenseActivation($seat, $machine);
                 $seat->addActivation($activation);
-                $this->entityManager->persist($activation);
+                $this->unitOfWork->persist($activation);
             }
             $activation->setName($name ?? $activation->getName())
                 ->setPlatform($platform ?? $activation->getPlatform())
                 ->setVersion($version ?? $activation->getVersion())
                 ->seen();
-            $this->entityManager->flush();
-            $this->entityManager->commit();
-        } catch (\Throwable $e) {
-            $this->entityManager->rollback();
+            $this->unitOfWork->flush();
 
-            throw $e;
-        }
+            return $activation;
+        });
 
         return $this->tokens->issue($activation) + ['activation' => $activation, 'machines_left' => $this->machinesLeft($seat)];
     }
@@ -101,8 +101,8 @@ class LicenseActivations
     public function release(LicenseActivation $activation): void
     {
         $activation->getSeat()?->removeActivation($activation);
-        $this->entityManager->remove($activation);
-        $this->entityManager->flush();
+        $this->unitOfWork->remove($activation);
+        $this->unitOfWork->flush();
     }
 
     /** The seat behind the key, on a valid licence of that software. */
@@ -126,8 +126,7 @@ class LicenseActivations
     /** The seat's machines left, counted in the database - not in a collection loaded before the lock. */
     private function machinesLeft(LicenseSeat $seat): int
     {
-        $taken = (int) $this->entityManager->createQuery('SELECT COUNT(a.id) FROM '.LicenseActivation::class.' a WHERE a.seat = :seat')
-            ->setParameter('seat', $seat)->getSingleScalarResult();
+        $taken = $this->repositories->of(LicenseActivation::class)->count(['seat' => Key::of($seat)]);
 
         return max(0, (int) $seat->getLicense()?->getMachinesPerSeat() - $taken);
     }
